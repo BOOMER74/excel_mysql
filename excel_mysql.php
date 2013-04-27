@@ -44,6 +44,7 @@
 					if ($this->mysqlconnect->query("CREATE TABLE " . $table_name . " (" . str_replace(",", " TEXT NOT NULL,", $columns_str) . " TEXT NOT NULL)")) {
 						// Количество строк на листе Excel
 						$rows_count = $worksheet->getHighestRow();
+
 						// Перебираем строки листа Excel
 						for ($row = $columns_name_line + 1; $row <= $rows_count; $row++) {
 							// Строка со значениями всех столбцов в строке листа Excel
@@ -91,7 +92,7 @@
 			return true;
 		}
 
-		// Импорт листа Excel по индексу. Параметры:
+		// Функция импорта листа Excel по индексу. Параметры:
 		//   $table_name - имя таблицы MySQL
 		//   $index - индекс листа Excel
 		//   $columns_name_line - строка с именами столбцов таблицы MySQL (0 - имена типа column + n)
@@ -105,7 +106,7 @@
 			return $this->excel2mysql($PHPExcel_file->getActiveSheet(), $table_name, $columns_name_line);
 		}
 
-		// Импорт всех листов Excel. Параметры:
+		// Функция импорта всех листов Excel. Параметры:
 		//   $tables_names - массив имен таблиц MySQL
 		//   $columns_name_line - строка с именами столбцов таблицы MySQL (0 - имена типа column + n)
 		public function excel2mysql_iterate($tables_names, $columns_name_line = 0) {
@@ -130,6 +131,11 @@
 			return true;
 		}
 
+		// Функция экспорта таблицы MySQL в файл Excel. Если файл существует, то его 1й лист
+		// будет заменен на экспортируемую таблицу. Параметры:
+		//   $table_name - имя таблицы MySQL
+		//   $worksheet_name - имя листа Excel
+		//   $excel_format - формат файла Excel
 		public function mysql2excel($table_name, $worksheet_name, $excel_format = "Excel2007") {
 			// Проверяем соединение с MySQL
 			if (!$this->mysqlconnect->connect_error) {
