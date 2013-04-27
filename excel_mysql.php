@@ -2,7 +2,7 @@
 	// Подключаем библиотеку
 	require_once "PHPExcel.php";
 
-	// Класс импорта-экспорта Excel в MySQL и наоборот
+	// Класс импорта файла Excel в таблицу MySQL и экспорта таблицы MySQL в файл Excel
 	class excel_mysql {
 		// Соединение с базой
 		private $mysqlconnect;
