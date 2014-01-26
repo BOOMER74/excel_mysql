@@ -64,32 +64,31 @@
 										// то вычисляем значение первой объединенной ячейки, и используем её в качестве значения
 										// текущей ячейки
 										$merged_value = $worksheet->getCell(explode(":", $mergedCells)[0])->getCalculatedValue();
+
 										break;
 									}
 								}
 
 								// Проверяем, что ячейка не объединенная: если нет, то берем ее значение, иначе значение первой
 								// объединенной ячейки
-								$value_str .= "'" . (strlen($merged_value) == 0 ? $cell->getCalculatedValue() : $merged_value) . "',";
+								$value_str .= "'" . $this->mysqlconnect->real_escape_string(strlen($merged_value) == 0 ? $cell->getCalculatedValue() : $merged_value) . "',";
 							}
 
 							// Обрезаем строку, убирая запятую в конце
 							$value_str = substr($value_str, 0, -1);
 
 							// Добавляем строку в таблицу MySQL
-							$this->mysqlconnect->query("INSERT INTO " . $table_name . " (" . $columns_str . ") VALUES (" . $value_str . ")");
+							if (!$this->mysqlconnect->query("INSERT INTO " . $table_name . " (" . $columns_str . ") VALUES (" . $value_str . ")")) {
+								return false;
+							}
 						}
-					} else {
-						return false;
+
+						return true;
 					}
-				} else {
-					return false;
 				}
-			} else {
-				return false;
 			}
 
-			return true;
+			return false;
 		}
 
 		// Функция импорта листа Excel по индексу. Параметры:
@@ -124,11 +123,11 @@
 						return false;
 					}
 				}
-			} else {
-				return false;
+
+				return true;
 			}
 
-			return true;
+			return false;
 		}
 
 		// Функция экспорта таблицы MySQL в файл Excel. Если файл существует, то его 1й лист
@@ -136,7 +135,7 @@
 		//   $table_name - имя таблицы MySQL
 		//   $worksheet_name - имя листа Excel
 		//   $excel_format - формат файла Excel
-		public function mysql2excel($table_name, $worksheet_name, $excel_format = "Excel2007") {
+		public function mysql2excel($table_name, $worksheet_name, $file_creator = "excel_mysql", $excel_format = "Excel2007") {
 			// Проверяем соединение с MySQL
 			if (!$this->mysqlconnect->connect_error) {
 				// Запрос MySQL, возвращающий всё таблицу
@@ -152,6 +151,9 @@
 
 						// Задаем имя листа Excel
 						$worksheet->setTitle($worksheet_name);
+
+						// Задаем автора (создателя файла)
+						$phpExcel->getProperties()->setCreator($file_creator);
 
 						// Счетчик строк
 						$row = 1;
@@ -171,17 +173,12 @@
 						$writer = PHPExcel_IOFactory::createWriter($phpExcel, $excel_format);
 						// Сохраняем файл
 						$writer->save($this->excelfile);
-					} else {
-						return false;
+
+						return true;
 					}
-				} else {
-					return false;
 				}
-			} else {
-				return false;
 			}
 
-			return true;
+			return false;
 		}
 	}
-?>

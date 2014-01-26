@@ -18,4 +18,3 @@
 
 	// Преобразуем первый лист Excel в таблицу MySQL
 	echo $excel_mysql_import_export->excel2mysql_byindex("excel_mysql_first") ? "OK\n" : "FAIL\n";
-?>
