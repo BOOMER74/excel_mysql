@@ -3,7 +3,7 @@
 	require_once "../excel_mysql.php";
 
 	// Соединение с базой MySQL
-	$connection = new mysqli("localhost", "user", "pass", "base");
+	$connection = new mysqli("localhost", "user", "pass", "excel_mysql_base");
 	// Выбираем кодировку UTF-8
 	$connection->set_charset("utf8");
 
