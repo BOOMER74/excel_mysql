@@ -1,4 +1,8 @@
-CREATE TABLE `excel_mysql` (
+CREATE DATABASE IF NOT EXISTS `excel_mysql_base`;
+
+USE `excel_mysql_base`;
+
+CREATE TABLE IF NOT EXISTS `excel_mysql` (
 	`column0` text NOT NULL,
 	`column1` text NOT NULL,
 	`column2` text NOT NULL
