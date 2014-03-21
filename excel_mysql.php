@@ -2,53 +2,83 @@
 	// Подключаем библиотеку
 	require_once "PHPExcel.php";
 
-	// Класс импорта файла Excel в таблицу MySQL и экспорта таблицы MySQL в файл Excel
+	/**
+	 * Класс импорта файла Excel в таблицу MySQL и экспорта таблицы MySQL в файл Excel
+	 */
 	class excel_mysql {
-		// Соединение с базой
-		private $mysqlconnect;
-		// Переменная файла Excel
-		private $excelfile;
+		/**
+		 * @var mysqli - Подключение к базе данных
+		 */
+		private $mysql_connect;
+		/**
+		 * @var string - Имя файла для импорта/экспорта
+		 */
+		private $excel_file;
 
-		// Конструктор класса
+		/**
+		 * Конструктор класса
+		 *
+		 * @param mysqli $connection - Подключение к базе данных
+		 * @param string $filename   - Имя файла для импорта/экспорта
+		 */
 		function __construct($connection, $filename) {
-			// Соединение с базой с использованием внешнего соединения
-			$this->mysqlconnect = $connection;
-			// Имя файла Excel
-			$this->excelfile = $filename;
+			$this->mysql_connect = $connection;
+			$this->excel_file = $filename;
 		}
 
-		// Функция преобразования листа Excel в таблицу MySQL, с учетом объединенных строк и столбцов.
-		// Значения берутся уже вычисленными. Параметры:
-		//   $worksheet - лист Excel
-		//   $table_name - имя таблицы MySQL
-		//   $columns_name_line - строка с именами столбцов таблицы MySQL (0 - имена типа column + n)
-		private function excel2mysql($worksheet, $table_name, $columns_name_line) {
+		/**
+		 * Функция преобразования листа Excel в таблицу MySQL, с учетом объединенных строк и столбцов. Значения берутся уже вычисленными
+		 *
+		 * @param PHPExcel_Worksheet $worksheet                - Лист Excel
+		 * @param string             $table_name               - Имя таблицы MySQL
+		 * @param int|array          $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
+		 * @param bool|int           $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы)
+		 * @param bool|int           $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
+		 * @param string             $table_encoding           - Кодировка таблицы MySQL
+		 *
+		 * @return bool
+		 */
+		private
+		function excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $unique_column_for_update, $table_encoding) {
 			// Проверяем соединение с MySQL
-			if (!$this->mysqlconnect->connect_error) {
+			if (!$this->mysql_connect->connect_error) {
 				// Строка для названий столбцов таблицы MySQL
-				$columns_str = "";
+				$columns = array();
 				// Количество столбцов на листе Excel
 				$columns_count = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
 
-				// Перебираем столбцы листа Excel и генерируем строку с именами через запятую
-				for ($column = 0; $column < $columns_count; $column++) {
-					$columns_str .= ($columns_name_line == 0 ? "column" . $column : $worksheet->getCellByColumnAndRow($column, $columns_name_line)->getCalculatedValue()) . ",";
+				// Если в качестве имен стобцов передан массив, то проверяем соответствие его длинны с количеством столбцов
+				if (is_array($columns_names)) {
+					if (count($columns_names) != $columns_count) {
+						return false;
+					}
 				}
 
-				// Обрезаем строку, убирая запятую в конце
-				$columns_str = substr($columns_str, 0, -1);
+				// Проверяем, что $columns_names - массив и $unique_column_for_update находиться в его пределах
+				if ($unique_column_for_update) {
+					$unique_column_for_update = is_array($columns_names) ? ($unique_column_for_update <= count($columns_names) ? "`" . $columns_names[$unique_column_for_update - 1] . "`" : false) : false;
+				}
 
-				// Удаляем таблицу MySQL, если она существовала
-				if ($this->mysqlconnect->query("DROP TABLE IF EXISTS " . $table_name)) {
+				// Перебираем столбцы листа Excel и генерируем строку с именами через запятую
+				for ($column = 0; $column < $columns_count; $column++) {
+					/** @noinspection PhpDeprecationInspection */
+					$columns[] = "`" . (is_array($columns_names) ? $columns_names[$column] : ($columns_names == 0 ? "column" . $column : $worksheet->getCellByColumnAndRow($column, $columns_names)->getCalculatedValue())) . "`";
+				}
+
+				// Удаляем таблицу MySQL, если она существовала (если не указан столбец с уникальным значением для обновления)
+				if ($unique_column_for_update ? true : $this->mysql_connect->query("DROP TABLE IF EXISTS `" . $table_name . "`")) {
 					// Создаем таблицу MySQL
-					if ($this->mysqlconnect->query("CREATE TABLE " . $table_name . " (" . str_replace(",", " TEXT NOT NULL,", $columns_str) . " TEXT NOT NULL)")) {
+					if ($this->mysql_connect->query("CREATE TABLE IF NOT EXISTS `" . $table_name . "` (" . str_replace(",", " TEXT NOT NULL,", implode(",", $columns)) . " TEXT NOT NULL) COLLATE = '" . $table_encoding . "'")) {
+						// Коллекция значений уникального стобца для удаления несуществующих строк в файле импорта (используется при обновлении)
+						$id_list_in_import = array();
+
 						// Количество строк на листе Excel
 						$rows_count = $worksheet->getHighestRow();
 
 						// Перебираем строки листа Excel
-						for ($row = $columns_name_line + 1; $row <= $rows_count; $row++) {
+						for ($row = ($start_row_index ? $start_row_index : (is_array($columns_names) ? 1 : $columns_names + 1)); $row <= $rows_count; $row++) {
 							// Строка со значениями всех столбцов в строке листа Excel
-							$value_str = "";
+							$values = array();
 
 							// Перебираем столбцы листа Excel
 							for ($column = 0; $column < $columns_count; $column++) {
@@ -61,26 +91,66 @@
 								foreach ($worksheet->getMergeCells() as $mergedCells) {
 									// Если текущая ячейка - объединенная,
 									if ($cell->isInRange($mergedCells)) {
-										// то вычисляем значение первой объединенной ячейки, и используем её в качестве значения
-										// текущей ячейки
+										// то вычисляем значение первой объединенной ячейки, и используем её в качестве значения текущей ячейки
+										/** @noinspection PhpDeprecationInspection */
 										$merged_value = $worksheet->getCell(explode(":", $mergedCells)[0])->getCalculatedValue();
 
 										break;
 									}
 								}
 
-								// Проверяем, что ячейка не объединенная: если нет, то берем ее значение, иначе значение первой
-								// объединенной ячейки
-								$value_str .= "'" . $this->mysqlconnect->real_escape_string(strlen($merged_value) == 0 ? $cell->getCalculatedValue() : $merged_value) . "',";
+								// Проверяем, что ячейка не объединенная: если нет, то берем ее значение, иначе значение первой объединенной ячейки
+								/** @noinspection PhpDeprecationInspection */
+								$values[] = "'" . $this->mysql_connect->real_escape_string(strlen($merged_value) == 0 ? $cell->getCalculatedValue() : $merged_value) . "'";
 							}
 
-							// Обрезаем строку, убирая запятую в конце
-							$value_str = substr($value_str, 0, -1);
+							// Добавляем или проверяем обновлять ли значение
+							$add_to_table = $unique_column_for_update ? false : true;
+
+							// Если обновляем
+							if ($unique_column_for_update) {
+								// Объединяем массивы для простоты работы
+								$columns_values = array_combine($columns, $values);
+
+								// Сохраняем уникальное значение
+								$id_list_in_import[] = $columns_values[$unique_column_for_update];
+
+								// Создаем условие выборки
+								$where = " WHERE " . $unique_column_for_update . " = " . $columns_values[$unique_column_for_update];
+
+								// Удаляем столбец выборки
+								unset($columns_values[$unique_column_for_update]);
+
+								// Проверяем есть ли запись в таблице
+								$count = $this->mysql_connect->query("SELECT COUNT(*) AS count FROM `" . $table_name . "`" . $where);
+								$count = $count->fetch_assoc();
+
+								// Если есть, то создаем запрос и обновляем
+								if (intval($count['count']) != 0) {
+									$set = array();
+
+									foreach ($columns_values as $column => $value) {
+										$set[] = $column . " = " . $value;
+									}
+
+									if (!$this->mysql_connect->query("UPDATE `" . $table_name . "` SET " . implode(",", $set) . $where)) {
+										return false;
+									}
+								} else {
+									$add_to_table = true;
+								}
+							}
 
 							// Добавляем строку в таблицу MySQL
-							if (!$this->mysqlconnect->query("INSERT INTO " . $table_name . " (" . $columns_str . ") VALUES (" . $value_str . ")")) {
-								return false;
+							if ($add_to_table) {
+								if (!$this->mysql_connect->query("INSERT INTO `" . $table_name . "` (" . implode(",", $columns) . ") VALUES (" . implode(",", $values) . ")")) {
+									return false;
+								}
 							}
+						}
+
+						if (!empty($id_list_in_import)) {
+							$this->mysql_connect->query("DELETE FROM `" . $table_name . "` WHERE " . $unique_column_for_update . " NOT IN (" . implode(",", $id_list_in_import) . ")");
 						}
 
 						return true;
@@ -91,35 +161,53 @@
 			return false;
 		}
 
-		// Функция импорта листа Excel по индексу. Параметры:
-		//   $table_name - имя таблицы MySQL
-		//   $index - индекс листа Excel
-		//   $columns_name_line - строка с именами столбцов таблицы MySQL (0 - имена типа column + n)
-		public function excel2mysql_byindex($table_name, $index = 0, $columns_name_line = 0) {
+		/**
+		 * Функция импорта листа Excel по индексу
+		 *
+		 * @param string    $table_name               - Имя таблицы MySQL
+		 * @param int       $index                    - Индекс листа Excel
+		 * @param int|array $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
+		 * @param bool|int  $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы)
+		 * @param bool|int  $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
+		 * @param string    $table_encoding           - Кодировка таблицы MySQL
+		 *
+		 * @return bool
+		 */
+		public
+		function excel2mysql_byindex($table_name, $index = 0, $columns_names = 0, $start_row_index = false, $unique_column_for_update = false, $table_encoding = "utf8_general_ci") {
 			// Загружаем файл Excel
-			$PHPExcel_file = PHPExcel_IOFactory::load($this->excelfile);
+			$PHPExcel_file = PHPExcel_IOFactory::load($this->excel_file);
 
 			// Выбираем лист Excel
 			$PHPExcel_file->setActiveSheetIndex($index);
 
-			return $this->excel2mysql($PHPExcel_file->getActiveSheet(), $table_name, $columns_name_line);
+			return $this->excel2mysql($PHPExcel_file->getActiveSheet(), $table_name, $columns_names, $start_row_index, $unique_column_for_update, $table_encoding);
 		}
 
-		// Функция импорта всех листов Excel. Параметры:
-		//   $tables_names - массив имен таблиц MySQL
-		//   $columns_name_line - строка с именами столбцов таблицы MySQL (0 - имена типа column + n)
-		public function excel2mysql_iterate($tables_names, $columns_name_line = 0) {
+		/**
+		 * Функция импорта всех листов Excel
+		 *
+		 * @param array     $tables_names             - Массив имен таблиц MySQL
+		 * @param int|array $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
+		 * @param bool|int  $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы)
+		 * @param bool|int  $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
+		 * @param string    $table_encoding           - Кодировка таблицы MySQL
+		 *
+		 * @return bool
+		 */
+		public
+		function excel2mysql_iterate($tables_names, $columns_names = 0, $start_row_index = false, $unique_column_for_update = false, $table_encoding = "utf8_general_ci") {
 			// Если массив имен содержит хотя бы 1 запись
 			if (count($tables_names) > 0) {
 				// Загружаем файл Excel
-				$PHPExcel_file = PHPExcel_IOFactory::load($this->excelfile);
+				$PHPExcel_file = PHPExcel_IOFactory::load($this->excel_file);
 
 				// Перебираем все листы Excel и преобразуем в таблицу MySQL
 				foreach ($PHPExcel_file->getWorksheetIterator() as $index => $worksheet) {
 					// Имя берётся из массива, если элемент не существует, берем 1й и добавляем индекс
 					$table_name = array_key_exists($index, $tables_names) ? $tables_names[$index] : $tables_names[0] . $index;
 
-					if (!$this->excel2mysql($worksheet, $table_name, $columns_name_line)) {
+					if (!$this->excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $unique_column_for_update, $table_encoding)) {
 						return false;
 					}
 				}
@@ -130,16 +218,22 @@
 			return false;
 		}
 
-		// Функция экспорта таблицы MySQL в файл Excel. Если файл существует, то его 1й лист
-		// будет заменен на экспортируемую таблицу. Параметры:
-		//   $table_name - имя таблицы MySQL
-		//   $worksheet_name - имя листа Excel
-		//   $excel_format - формат файла Excel
-		public function mysql2excel($table_name, $worksheet_name, $file_creator = "excel_mysql", $excel_format = "Excel2007") {
+		/**
+		 * Функция экспорта таблицы MySQL в файл Excel. Если файл существует, то его 1й лист будет заменен на экспортируемую таблицу
+		 *
+		 * @param string $table_name     - Имя таблицы MySQL
+		 * @param string $worksheet_name - Имя листа Excel
+		 * @param string $file_creator   - Автор документа
+		 * @param string $excel_format   - Формат файла Excel
+		 *
+		 * @return bool
+		 */
+		public
+		function mysql2excel($table_name, $worksheet_name, $file_creator = "excel_mysql", $excel_format = "Excel2007") {
 			// Проверяем соединение с MySQL
-			if (!$this->mysqlconnect->connect_error) {
+			if (!$this->mysql_connect->connect_error) {
 				// Запрос MySQL, возвращающий всё таблицу
-				if ($query = $this->mysqlconnect->query("SELECT * FROM " . $table_name)) {
+				if ($query = $this->mysql_connect->query("SELECT * FROM " . $table_name)) {
 					// Если таблица MySQL не пустая
 					if ($query->num_rows > 0) {
 						// Создаем экземпляр класса PHPExcel
@@ -172,7 +266,7 @@
 						// Создаем "писателя"
 						$writer = PHPExcel_IOFactory::createWriter($phpExcel, $excel_format);
 						// Сохраняем файл
-						$writer->save($this->excelfile);
+						$writer->save($this->excel_file);
 
 						return true;
 					}
