@@ -32,15 +32,17 @@
 		 * @param PHPExcel_Worksheet $worksheet                - Лист Excel
 		 * @param string             $table_name               - Имя таблицы MySQL
 		 * @param int|array          $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
-		 * @param bool|int           $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы)
+		 * @param bool|int   $start_row_index     - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
+		 * @param bool|array $transform_functions - Массив функций для изменения значения столбца (столбец => функция)
 		 * @param bool|int           $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
-		 * @param bool|array         $table_types              - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11)"
+		 * @param bool|array $table_types         - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11) NOT NULL". Если не указаны, то используется "TEXT NOT NULL"
+		 * @param bool|array $table_keys          - Ключевые поля таблицы (тип => столбец)
 		 * @param string             $table_encoding           - Кодировка таблицы MySQL
 		 *
 		 * @return bool
 		 */
 		private
-		function excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $unique_column_for_update, $table_types, $table_encoding) {
+		function excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding) {
 			// Проверяем соединение с MySQL
 			if (!$this->mysql_connect->connect_error) {
 				// Строка для названий столбцов таблицы MySQL
@@ -78,6 +80,12 @@
 					$columns[] = "`" . (is_array($columns_names) ? $columns_names[$column] : ($columns_names == 0 ? "column" . $column : $worksheet->getCellByColumnAndRow($column, $columns_names)->getCalculatedValue())) . "`";
 				}
 
+				if (defined("EXCEL_MYSQL_DEBUG")) {
+					if (EXCEL_MYSQL_DEBUG) {
+						var_dump("DROP TABLE IF EXISTS `" . $table_name . "`");
+					}
+				}
+
 				// Удаляем таблицу MySQL, если она существовала (если не указан столбец с уникальным значением для обновления)
 				if ($unique_column_for_update ? true : $this->mysql_connect->query("DROP TABLE IF EXISTS `" . $table_name . "`")) {
 					$columns_types = array();
@@ -85,14 +93,33 @@
 					// Обходим столбцы и присваиваем типы
 					foreach ($columns as $index => $value) {
 						if ($table_types) {
-							$columns_types[] = $value . " " . $table_types[$index] . " NOT NULL";
+							$columns_types[] = $value . " " . $table_types[$index];
 						} else {
 							$columns_types[] = $value . " TEXT NOT NULL";
 						}
 					}
 
+					// Если указаны ключевые поля, то создаем массив ключей
+					if ($table_keys) {
+						$columns_keys = array();
+
+						foreach ($table_keys as $key => $value) {
+							$columns_keys[] = $key . " (`" . $value . "`)";
+						}
+
+						$columns_keys = ", " . implode(", ", $columns_keys);
+					} else {
+						$columns_keys = "";
+					}
+
+					if (defined("EXCEL_MYSQL_DEBUG")) {
+						if (EXCEL_MYSQL_DEBUG) {
+							var_dump("CREATE TABLE IF NOT EXISTS `" . $table_name . "` (" . implode(", ", $columns_types) . $columns_keys . ") COLLATE = '" . $table_encoding . "'");
+						}
+					}
+
 					// Создаем таблицу MySQL
-					if ($this->mysql_connect->query("CREATE TABLE IF NOT EXISTS `" . $table_name . "` (" . implode(", ", $columns_types) . ") COLLATE = '" . $table_encoding . "'")) {
+					if ($this->mysql_connect->query("CREATE TABLE IF NOT EXISTS `" . $table_name . "` (" . implode(", ", $columns_types) . $columns_keys . ") COLLATE = '" . $table_encoding . "'")) {
 						// Коллекция значений уникального столбца для удаления несуществующих строк в файле импорта (используется при обновлении)
 						$id_list_in_import = array();
 
@@ -123,9 +150,12 @@
 									}
 								}
 
-								// Проверяем, что ячейка не объединенная: если нет, то берем ее значение, иначе значение первой объединенной ячейки
 								/** @noinspection PhpDeprecationInspection */
-								$values[] = "'" . $this->mysql_connect->real_escape_string(strlen($merged_value) == 0 ? $cell->getCalculatedValue() : $merged_value) . "'";
+								$value = strlen($merged_value) == 0 ? $cell->getCalculatedValue() : $merged_value;
+								$value = $transform_functions ? (isset($transform_functions[$columns_names[$column]]) ? $transform_functions[$columns_names[$column]]($value) : $value) : $value;
+
+								// Проверяем, что ячейка не объединенная: если нет, то берем ее значение, иначе значение первой объединенной ячейки
+								$values[] = "'" . $this->mysql_connect->real_escape_string($value) . "'";
 							}
 
 							// Добавляем или проверяем обновлять ли значение
@@ -145,6 +175,12 @@
 								// Удаляем столбец выборки
 								unset($columns_values[$unique_column_for_update]);
 
+								if (defined("EXCEL_MYSQL_DEBUG")) {
+									if (EXCEL_MYSQL_DEBUG) {
+										var_dump("SELECT COUNT(*) AS count FROM `" . $table_name . "`" . $where);
+									}
+								}
+
 								// Проверяем есть ли запись в таблице
 								$count = $this->mysql_connect->query("SELECT COUNT(*) AS count FROM `" . $table_name . "`" . $where);
 								$count = $count->fetch_assoc();
@@ -157,6 +193,12 @@
 										$set[] = $column . " = " . $value;
 									}
 
+									if (defined("EXCEL_MYSQL_DEBUG")) {
+										if (EXCEL_MYSQL_DEBUG) {
+											var_dump("UPDATE `" . $table_name . "` SET " . implode(",", $set) . $where);
+										}
+									}
+
 									if (!$this->mysql_connect->query("UPDATE `" . $table_name . "` SET " . implode(",", $set) . $where)) {
 										return false;
 									}
@@ -167,6 +209,12 @@
 
 							// Добавляем строку в таблицу MySQL
 							if ($add_to_table) {
+								if (defined("EXCEL_MYSQL_DEBUG")) {
+									if (EXCEL_MYSQL_DEBUG) {
+										var_dump("INSERT INTO `" . $table_name . "` (" . implode(",", $columns) . ") VALUES (" . implode(",", $values) . ")");
+									}
+								}
+
 								if (!$this->mysql_connect->query("INSERT INTO `" . $table_name . "` (" . implode(",", $columns) . ") VALUES (" . implode(",", $values) . ")")) {
 									return false;
 								}
@@ -174,6 +222,12 @@
 						}
 
 						if (!empty($id_list_in_import)) {
+							if (defined("EXCEL_MYSQL_DEBUG")) {
+								if (EXCEL_MYSQL_DEBUG) {
+									var_dump("DELETE FROM `" . $table_name . "` WHERE " . $unique_column_for_update . " NOT IN (" . implode(",", $id_list_in_import) . ")");
+								}
+							}
+
 							$this->mysql_connect->query("DELETE FROM `" . $table_name . "` WHERE " . $unique_column_for_update . " NOT IN (" . implode(",", $id_list_in_import) . ")");
 						}
 
@@ -191,22 +245,24 @@
 		 * @param string     $table_name               - Имя таблицы MySQL
 		 * @param int        $index                    - Индекс листа Excel
 		 * @param int|array  $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
-		 * @param bool|int   $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы)
+		 * @param bool|int   $start_row_index     - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
+		 * @param bool|array $transform_functions - Массив функций для изменения значения столбца (столбец => функция)
 		 * @param bool|int   $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
 		 * @param bool|array $table_types              - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11)"
+		 * @param bool|array $table_keys          - Ключевые поля таблицы
 		 * @param string     $table_encoding           - Кодировка таблицы MySQL
 		 *
 		 * @return bool
 		 */
 		public
-		function excel2mysql_byindex($table_name, $index = 0, $columns_names = 0, $start_row_index = false, $unique_column_for_update = false, $table_types = false, $table_encoding = "utf8_general_ci") {
+		function excel2mysql_byindex($table_name, $index = 0, $columns_names = 0, $start_row_index = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci") {
 			// Загружаем файл Excel
 			$PHPExcel_file = PHPExcel_IOFactory::load($this->excel_file);
 
 			// Выбираем лист Excel
 			$PHPExcel_file->setActiveSheetIndex($index);
 
-			return $this->excel2mysql($PHPExcel_file->getActiveSheet(), $table_name, $columns_names, $start_row_index, $unique_column_for_update, $table_types, $table_encoding);
+			return $this->excel2mysql($PHPExcel_file->getActiveSheet(), $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding);
 		}
 
 		/**
@@ -214,15 +270,17 @@
 		 *
 		 * @param array      $tables_names             - Массив имен таблиц MySQL
 		 * @param int|array  $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
-		 * @param bool|int   $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы)
+		 * @param bool|int   $start_row_index     - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
+		 * @param bool|array $transform_functions - Массив функций для изменения значения столбца (столбец => функция)
 		 * @param bool|int   $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
 		 * @param bool|array $table_types              - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11)"
+		 * @param bool|array $table_keys          - Ключевые поля таблицы
 		 * @param string     $table_encoding           - Кодировка таблицы MySQL
 		 *
 		 * @return bool
 		 */
 		public
-		function excel2mysql_iterate($tables_names, $columns_names = 0, $start_row_index = false, $unique_column_for_update = false, $table_types = false, $table_encoding = "utf8_general_ci") {
+		function excel2mysql_iterate($tables_names, $columns_names = 0, $start_row_index = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci") {
 			// Если массив имен содержит хотя бы 1 запись
 			if (count($tables_names) > 0) {
 				// Загружаем файл Excel
@@ -233,7 +291,7 @@
 					// Имя берётся из массива, если элемент не существует, берем 1й и добавляем индекс
 					$table_name = array_key_exists($index, $tables_names) ? $tables_names[$index] : $tables_names[0] . $index;
 
-					if (!$this->excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $unique_column_for_update, $table_types, $table_encoding)) {
+					if (!$this->excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding)) {
 						return false;
 					}
 				}
