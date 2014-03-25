@@ -88,14 +88,20 @@
 
 				// Удаляем таблицу MySQL, если она существовала (если не указан столбец с уникальным значением для обновления)
 				if ($unique_column_for_update ? true : $this->mysql_connect->query("DROP TABLE IF EXISTS `" . $table_name . "`")) {
-					$columns_types = array();
+					$columns_types = $ignore_columns = array();
 
 					// Обходим столбцы и присваиваем типы
 					foreach ($columns as $index => $value) {
-						if ($table_types) {
-							$columns_types[] = $value . " " . $table_types[$index];
+						if ($value != "``") {
+							if ($table_types) {
+								$columns_types[] = $value . " " . $table_types[$index];
+							} else {
+								$columns_types[] = $value . " TEXT NOT NULL";
+							}
 						} else {
-							$columns_types[] = $value . " TEXT NOT NULL";
+							$ignore_columns[] = $index;
+
+							unset($columns[$index]);
 						}
 					}
 
@@ -133,6 +139,10 @@
 
 							// Перебираем столбцы листа Excel
 							for ($column = 0; $column < $columns_count; $column++) {
+								if (in_array($column, $ignore_columns)) {
+									continue;
+								}
+
 								// Строка со значением объединенных ячеек листа Excel
 								$merged_value = "";
 								// Ячейка листа Excel
