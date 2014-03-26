@@ -43,7 +43,7 @@
 		 * @return bool
 		 */
 		private
-		function excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine = "InnoDB") {
+		function excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine) {
 			// Проверяем соединение с MySQL
 			if (!$this->mysql_connect->connect_error) {
 				// Строка для названий столбцов таблицы MySQL
@@ -274,18 +274,19 @@
 		 * @param bool|array $table_types              - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11)"
 		 * @param bool|array $table_keys               - Ключевые поля таблицы (тип => столбец)
 		 * @param string     $table_encoding           - Кодировка таблицы MySQL
+		 * @param string     $table_engine             - Тип таблицы MySQL
 		 *
 		 * @return bool
 		 */
 		public
-		function excel2mysql_byindex($table_name, $index = 0, $columns_names = 0, $start_row_index = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci") {
+		function excel2mysql_byindex($table_name, $index = 0, $columns_names = 0, $start_row_index = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci", $table_engine = "InnoDB") {
 			// Загружаем файл Excel
 			$PHPExcel_file = PHPExcel_IOFactory::load($this->excel_file);
 
 			// Выбираем лист Excel
 			$PHPExcel_file->setActiveSheetIndex($index);
 
-			return $this->excel2mysql($PHPExcel_file->getActiveSheet(), $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding);
+			return $this->excel2mysql($PHPExcel_file->getActiveSheet(), $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine);
 		}
 
 		/**
@@ -299,11 +300,12 @@
 		 * @param bool|array $table_types              - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11)"
 		 * @param bool|array $table_keys               - Ключевые поля таблицы (тип => столбец)
 		 * @param string     $table_encoding           - Кодировка таблицы MySQL
+		 * @param string     $table_engine             - Тип таблицы MySQL
 		 *
 		 * @return bool
 		 */
 		public
-		function excel2mysql_iterate($tables_names, $columns_names = 0, $start_row_index = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci") {
+		function excel2mysql_iterate($tables_names, $columns_names = 0, $start_row_index = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci", $table_engine = "InnoDB") {
 			// Если массив имен содержит хотя бы 1 запись
 			if (count($tables_names) > 0) {
 				// Загружаем файл Excel
@@ -314,7 +316,7 @@
 					// Имя берётся из массива, если элемент не существует, берем 1й и добавляем индекс
 					$table_name = array_key_exists($index, $tables_names) ? $tables_names[$index] : $tables_names[0] . $index;
 
-					if (!$this->excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding)) {
+					if (!$this->excel2mysql($worksheet, $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine)) {
 						return false;
 					}
 				}
