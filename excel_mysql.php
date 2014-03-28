@@ -113,7 +113,7 @@
 						$columns_keys = array();
 
 						foreach ($table_keys as $key => $value) {
-							$columns_keys[] = $key . " (`" . $value . "`)";
+							$columns_keys[] = $value . " (`" . $key . "`)";
 						}
 
 						$columns_keys = ", " . implode(", ", $columns_keys);
