@@ -48,6 +48,7 @@
 			if (!$this->mysql_connect->connect_error) {
 				// Строка для названий столбцов таблицы MySQL
 				$columns = array();
+
 				// Количество столбцов на листе Excel
 				$columns_count = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
 
@@ -150,6 +151,7 @@
 
 								// Строка со значением объединенных ячеек листа Excel
 								$merged_value = "";
+
 								// Ячейка листа Excel
 								$cell = $worksheet->getCellByColumnAndRow($column, $row);
 
@@ -158,8 +160,10 @@
 									// Если текущая ячейка - объединенная,
 									if ($cell->isInRange($mergedCells)) {
 										// то вычисляем значение первой объединенной ячейки, и используем её в качестве значения текущей ячейки
+										$merged_value = explode(":", $mergedCells);
+
 										/** @noinspection PhpDeprecationInspection */
-										$merged_value = $worksheet->getCell(explode(":", $mergedCells)[0])->getCalculatedValue();
+										$merged_value = $worksheet->getCell($merged_value[0])->getCalculatedValue();
 
 										break;
 									}
@@ -374,6 +378,7 @@
 
 						// Создаем "писателя"
 						$writer = PHPExcel_IOFactory::createWriter($phpExcel, $excel_format);
+
 						// Сохраняем файл
 						$writer->save($this->excel_file);
 
