@@ -18,15 +18,16 @@
 		 *
 		 * @param mysqli $connection - Подключение к базе данных
 		 * @param string $filename   - Имя файла для импорта/экспорта
+		 *
+		 * @throws Exception - Не найдена библиотека PHPExcel
 		 */
 		function __construct($connection, $filename) {
-
-			if (!class_exists('\PHPExcel')){
-				// Подключаем библиотеку
-				if (!@include_once "PHPExcel.php"){
-					throw new \Exception('PHPExcel required for this library');
-				}
+			// Если библиотека PHPExcel не подключена
+			if (!class_exists("\\PHPExcel")) {
+				// Выбрасываем исключение
+				throw new \Exception("PHPExcel library required!");
 			}
+
 			$this->mysql_connect = $connection;
 			$this->excel_file = $filename;
 		}
@@ -38,6 +39,7 @@
 		 * @param string             $table_name               - Имя таблицы MySQL
 		 * @param int|array          $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
 		 * @param bool|int           $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
+		 * @param bool|array         $condition_functions      - Массив функций с условиями добавления строки по значению столбца (столбец => функция)
 		 * @param bool|array         $transform_functions      - Массив функций для изменения значения столбца (столбец => функция)
 		 * @param bool|int           $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
 		 * @param bool|array         $table_types              - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11) NOT NULL". Если не указаны, то используется "TEXT NOT NULL"
@@ -48,14 +50,14 @@
 		 * @return bool
 		 */
 		private
-		function excel_to_mysql($worksheet, $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine) {
+		function excel_to_mysql($worksheet, $table_name, $columns_names, $start_row_index, $condition_functions, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine) {
 			// Проверяем соединение с MySQL
 			if (!$this->mysql_connect->connect_error) {
 				// Строка для названий столбцов таблицы MySQL
 				$columns = array();
 
 				// Количество столбцов на листе Excel
-				$columns_count = PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
+				$columns_count = \PHPExcel_Cell::columnIndexFromString($worksheet->getHighestColumn());
 
 				// Если в качестве имен столбцов передан массив, то проверяем соответствие его длинны с количеством столбцов
 				if ($columns_names) {
@@ -174,12 +176,28 @@
 									}
 								}
 
+								// Проверяем, что ячейка не объединенная: если нет, то берем ее значение, иначе значение первой объединенной ячейки
+
 								/** @noinspection PhpDeprecationInspection */
 								$value = strlen($merged_value) == 0 ? $cell->getCalculatedValue() : $merged_value;
 								$value = $transform_functions ? (isset($transform_functions[$columns_names[$column]]) ? $transform_functions[$columns_names[$column]]($value) : $value) : $value;
 
-								// Проверяем, что ячейка не объединенная: если нет, то берем ее значение, иначе значение первой объединенной ячейки
+								// Если задан массив функций с условиями
+								if ($condition_functions) {
+									if (isset($condition_functions[$columns_names[$column]])) {
+										// Проверяем условие
+										if (!$condition_functions[$columns_names[$column]]($value)) {
+											break;
+										}
+									}
+								}
+
 								$values[] = "'" . $this->mysql_connect->real_escape_string($value) . "'";
+							}
+
+							// Если количество столбцов не равно количеству значений, значит строка не прошла проверку
+							if ($columns_count - count($ignore_columns) != count($values)) {
+								continue;
 							}
 
 							// Добавляем или проверяем обновлять ли значение
@@ -252,9 +270,9 @@
 						}
 
 						if (!empty($id_list_in_import)) {
-							if (defined("EXCEL_MYSQL_DEBUG")) {
-								$query_string = "DELETE FROM `" . $table_name . "` WHERE " . $unique_column_for_update . " NOT IN (" . implode(", ", $id_list_in_import) . ")";
+							$query_string = "DELETE FROM `" . $table_name . "` WHERE " . $unique_column_for_update . " NOT IN (" . implode(", ", $id_list_in_import) . ")";
 
+							if (defined("EXCEL_MYSQL_DEBUG")) {
 								if (EXCEL_MYSQL_DEBUG) {
 									var_dump($query_string);
 								}
@@ -278,6 +296,7 @@
 		 * @param int        $index                    - Индекс листа Excel
 		 * @param int|array  $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
 		 * @param bool|int   $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
+		 * @param bool|array $condition_functions      - Массив функций с условиями добавления строки по значению столбца (столбец => функция)
 		 * @param bool|array $transform_functions      - Массив функций для изменения значения столбца (столбец => функция)
 		 * @param bool|int   $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
 		 * @param bool|array $table_types              - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11)"
@@ -288,14 +307,14 @@
 		 * @return bool
 		 */
 		public
-		function excel_to_mysql_by_index($table_name, $index = 0, $columns_names = 0, $start_row_index = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci", $table_engine = "InnoDB") {
+		function excel_to_mysql_by_index($table_name, $index = 0, $columns_names = 0, $start_row_index = false, $condition_functions = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci", $table_engine = "InnoDB") {
 			// Загружаем файл Excel
-			$PHPExcel_file = PHPExcel_IOFactory::load($this->excel_file);
+			$PHPExcel_file = \PHPExcel_IOFactory::load($this->excel_file);
 
 			// Выбираем лист Excel
 			$PHPExcel_file->setActiveSheetIndex($index);
 
-			return $this->excel_to_mysql($PHPExcel_file->getActiveSheet(), $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine);
+			return $this->excel_to_mysql($PHPExcel_file->getActiveSheet(), $table_name, $columns_names, $start_row_index, $condition_functions, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine);
 		}
 
 		/**
@@ -305,6 +324,7 @@
 		 * @param int|array  $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
 		 * @param bool|int   $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
 		 * @param bool|array $transform_functions      - Массив функций для изменения значения столбца (столбец => функция)
+		 * @param bool|array $condition_functions      - Массив функций с условиями добавления строки по значению столбца (столбец => функция)
 		 * @param bool|int   $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
 		 * @param bool|array $table_types              - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11)"
 		 * @param bool|array $table_keys               - Ключевые поля таблицы (тип => столбец)
@@ -314,18 +334,18 @@
 		 * @return bool
 		 */
 		public
-		function excel_to_mysql_iterate($tables_names, $columns_names = 0, $start_row_index = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci", $table_engine = "InnoDB") {
+		function excel_to_mysql_iterate($tables_names, $columns_names = 0, $start_row_index = false, $condition_functions = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci", $table_engine = "InnoDB") {
 			// Если массив имен содержит хотя бы 1 запись
 			if (count($tables_names) > 0) {
 				// Загружаем файл Excel
-				$PHPExcel_file = PHPExcel_IOFactory::load($this->excel_file);
+				$PHPExcel_file = \PHPExcel_IOFactory::load($this->excel_file);
 
 				// Перебираем все листы Excel и преобразуем в таблицу MySQL
 				foreach ($PHPExcel_file->getWorksheetIterator() as $index => $worksheet) {
 					// Имя берётся из массива, если элемент не существует, берем 1й и добавляем индекс
 					$table_name = array_key_exists($index, $tables_names) ? $tables_names[$index] : $tables_names[0] . $index;
 
-					if (!$this->excel_to_mysql($worksheet, $table_name, $columns_names, $start_row_index, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine)) {
+					if (!$this->excel_to_mysql($worksheet, $table_name, $columns_names, $start_row_index, $condition_functions, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine)) {
 						return false;
 					}
 				}
@@ -355,7 +375,7 @@
 					// Если таблица MySQL не пустая
 					if ($query->num_rows > 0) {
 						// Создаем экземпляр класса PHPExcel
-						$phpExcel = new PHPExcel();
+						$phpExcel = new \PHPExcel();
 
 						// Задаем лист Excel
 						$phpExcel->setActiveSheetIndex(0);
@@ -382,7 +402,7 @@
 						}
 
 						// Создаем "писателя"
-						$writer = PHPExcel_IOFactory::createWriter($phpExcel, $excel_format);
+						$writer = \PHPExcel_IOFactory::createWriter($phpExcel, $excel_format);
 
 						// Сохраняем файл
 						$writer->save($this->excel_file);
