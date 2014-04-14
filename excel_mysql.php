@@ -1,6 +1,4 @@
 <?php
-	// Подключаем библиотеку
-	require_once "PHPExcel.php";
 
 	/**
 	 * Класс импорта файла Excel в таблицу MySQL и экспорта таблицы MySQL в файл Excel
@@ -22,6 +20,13 @@
 		 * @param string $filename   - Имя файла для импорта/экспорта
 		 */
 		function __construct($connection, $filename) {
+
+			if (!class_exists('\PHPExcel')){
+				// Подключаем библиотеку
+				if (!@include_once "PHPExcel.php"){
+					throw new \Exception('PHPExcel required for this library');
+				}
+			}
 			$this->mysql_connect = $connection;
 			$this->excel_file = $filename;
 		}
