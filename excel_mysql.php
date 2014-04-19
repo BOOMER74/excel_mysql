@@ -29,7 +29,7 @@
 			}
 
 			$this->mysql_connect = $connection;
-			$this->excel_file = $filename;
+			$this->excel_file    = $filename;
 		}
 
 		/**
@@ -47,7 +47,7 @@
 		 * @param string             $table_encoding           - Кодировка таблицы MySQL
 		 * @param string             $table_engine             - Тип таблицы MySQL
 		 *
-		 * @return bool
+		 * @return bool - Флаг, удалось ли выполнить функцию в полном объеме
 		 */
 		private
 		function excel_to_mysql($worksheet, $table_name, $columns_names, $start_row_index, $condition_functions, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine) {
@@ -65,6 +65,8 @@
 						if (count($columns_names) != $columns_count) {
 							return false;
 						}
+					} else {
+						return false;
 					}
 				}
 
@@ -75,6 +77,8 @@
 						if (count($table_types) != count($columns_names)) {
 							return false;
 						}
+					} else {
+						return false;
 					}
 				}
 
@@ -180,7 +184,6 @@
 
 								/** @noinspection PhpDeprecationInspection */
 								$value = strlen($merged_value) == 0 ? $cell->getCalculatedValue() : $merged_value;
-								$value = $transform_functions ? (isset($transform_functions[$columns_names[$column]]) ? $transform_functions[$columns_names[$column]]($value) : $value) : $value;
 
 								// Если задан массив функций с условиями
 								if ($condition_functions) {
@@ -191,6 +194,8 @@
 										}
 									}
 								}
+
+								$value = $transform_functions ? (isset($transform_functions[$columns_names[$column]]) ? $transform_functions[$columns_names[$column]]($value) : $value) : $value;
 
 								$values[] = "'" . $this->mysql_connect->real_escape_string($value) . "'";
 							}
@@ -304,7 +309,7 @@
 		 * @param string     $table_encoding           - Кодировка таблицы MySQL
 		 * @param string     $table_engine             - Тип таблицы MySQL
 		 *
-		 * @return bool
+		 * @return bool - Флаг, удалось ли выполнить функцию в полном объеме
 		 */
 		public
 		function excel_to_mysql_by_index($table_name, $index = 0, $columns_names = 0, $start_row_index = false, $condition_functions = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci", $table_engine = "InnoDB") {
@@ -323,15 +328,15 @@
 		 * @param array      $tables_names             - Массив имен таблиц MySQL
 		 * @param int|array  $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
 		 * @param bool|int   $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
-		 * @param bool|array $transform_functions      - Массив функций для изменения значения столбца (столбец => функция)
 		 * @param bool|array $condition_functions      - Массив функций с условиями добавления строки по значению столбца (столбец => функция)
+		 * @param bool|array $transform_functions      - Массив функций для изменения значения столбца (столбец => функция)
 		 * @param bool|int   $unique_column_for_update - Номер столбца с уникальным значением для обновления таблицы. Работает если $columns_names - массив (название столбца берется из него по [$unique_column_for_update - 1])
 		 * @param bool|array $table_types              - Типы столбцов таблицы (используется при создании таблицы), в SQL формате - "INT(11)"
 		 * @param bool|array $table_keys               - Ключевые поля таблицы (тип => столбец)
 		 * @param string     $table_encoding           - Кодировка таблицы MySQL
 		 * @param string     $table_engine             - Тип таблицы MySQL
 		 *
-		 * @return bool
+		 * @return bool - Флаг, удалось ли выполнить функцию в полном объеме
 		 */
 		public
 		function excel_to_mysql_iterate($tables_names, $columns_names = 0, $start_row_index = false, $condition_functions = false, $transform_functions = false, $unique_column_for_update = false, $table_types = false, $table_keys = false, $table_encoding = "utf8_general_ci", $table_engine = "InnoDB") {
@@ -359,19 +364,64 @@
 		/**
 		 * Функция экспорта таблицы MySQL в файл Excel. Если файл существует, то его 1й лист будет заменен на экспортируемую таблицу
 		 *
-		 * @param string $table_name     - Имя таблицы MySQL
-		 * @param string $worksheet_name - Имя листа Excel
-		 * @param string $file_creator   - Автор документа
-		 * @param string $excel_format   - Формат файла Excel
+		 * @param string     $table_name          - Имя таблицы MySQL
+		 * @param string     $worksheet_name      - Имя листа Excel
+		 * @param bool|array $columns_names       - Массив имен столбцов в таблице MySQL
+		 * @param bool|array $headers_names       - Массив заголовков для первой строки файла
+		 * @param bool|int   $start_row_index     - Стартовая строка в таблице MySQL (SQL запрос - LIMIT x)
+		 * @param bool|int   $stop_row_index      - Конечная строка в таблице MySQL (SQL запрос - LIMIT 1, x)
+		 * @param bool|array $condition_functions - Массив функций с условиями добавления строк в файл Excel (столбец => функция)
+		 * @param bool|array $condition_sql_query - Строка прямого условного SQL запроса ("x = y AND x != z")
+		 * @param bool|array $transform_functions - Массив функции для изменения значения столбца (столбец => функция)
+		 * @param bool|array $cells_types         - Массив типов для ячеек по столбцу (столбец => тип из PHPExcel_Style_NumberFormat)
+		 * @param string     $file_creator        - Автор документа
+		 * @param string     $excel_format        - Формат файла Excel
 		 *
-		 * @return bool
+		 * @return bool - Флаг, удалось ли выполнить функцию в полном объеме
 		 */
 		public
-		function mysql_to_excel($table_name, $worksheet_name, $file_creator = "excel_mysql", $excel_format = "Excel2007") {
+		function mysql_to_excel($table_name, $worksheet_name, $columns_names = false, $headers_names = false, $start_row_index = false, $stop_row_index = false, $condition_functions = false, $condition_sql_query = false, $transform_functions = false, $cells_types = false, $file_creator = "excel_mysql", $excel_format = "Excel2007") {
 			// Проверяем соединение с MySQL
 			if (!$this->mysql_connect->connect_error) {
-				// Запрос MySQL, возвращающий всё таблицу
-				if ($query = $this->mysql_connect->query("SELECT * FROM " . $table_name)) {
+				// Проверяем, что $columns_names это массив
+				if ($columns_names) {
+					if (!is_array($columns_names)) {
+						return false;
+					}
+				}
+
+				// Проверяем, что $headers_names это массив и его длина соответствует $columns_names
+				if ($columns_names && $headers_names) {
+					if (is_array($headers_names)) {
+						if (count($columns_names) != count($headers_names)) {
+							return false;
+						}
+					} else {
+						return false;
+					}
+				}
+
+				// Проверяем, что $cells_types это массив и его длина соответствует $columns_names
+				if ($columns_names && $cells_types) {
+					if (is_array($cells_types)) {
+						if (count($columns_names) != count($cells_types)) {
+							return false;
+						}
+					} else {
+						return false;
+					}
+				}
+
+				// Запрос MySQL, возвращающий таблицу
+				$query_string = "SELECT " . ($columns_names ? "`" . implode("`, `", $columns_names) . "`" : "*") . " FROM " . $table_name . ($condition_sql_query ? " " . $condition_sql_query : "") . ($start_row_index || $stop_row_index ? " LIMIT " . ($start_row_index ? intval($start_row_index) : "1") . ($start_row_index && $stop_row_index ? ", " : "") . ($stop_row_index ? intval($stop_row_index) : "") : "");
+
+				if (defined("EXCEL_MYSQL_DEBUG")) {
+					if (EXCEL_MYSQL_DEBUG) {
+						var_dump($query_string);
+					}
+				}
+
+				if ($query = $this->mysql_connect->query($query_string)) {
 					// Если таблица MySQL не пустая
 					if ($query->num_rows > 0) {
 						// Создаем экземпляр класса PHPExcel
@@ -387,18 +437,49 @@
 						// Задаем автора (создателя файла)
 						$phpExcel->getProperties()->setCreator($file_creator);
 
-						// Счетчик строк
-						$row = 1;
+						// Если были заданы заголовки, то записываем их в файл
+						if ($headers_names) {
+							foreach ($headers_names as $column => $value) {
+								$worksheet->setCellValueByColumnAndRow($column, 1, $value);
+							}
+
+							// Счетчик строк
+							$row = 2;
+						} else {
+							// Счетчик строк
+							$row = 1;
+						}
 
 						// Перебираем строки как массив с числовым ключом ([0] => 0)
 						while ($rows = $query->fetch_array(2)) {
+							$values = array();
+
 							// Перебираем столбцы и пишем в лист Excel
 							foreach ($rows as $column => $value) {
-								$worksheet->setCellValueByColumnAndRow($column, $row, $value);
+								// Если задан массив функций с условиями
+								if ($condition_functions) {
+									if (isset($condition_functions[$columns_names[$column]])) {
+										// Проверяем условие
+										if (!$condition_functions[$columns_names[$column]]($value)) {
+											break;
+										}
+									}
+								}
+
+								$values[$column] = $transform_functions ? (isset($transform_functions[$columns_names[$column]]) ? $transform_functions[$columns_names[$column]]($value) : $value) : $value;
 							}
 
-							// Увеличиваем счетчик
-							$row++;
+							// Проверяем, что количество значений равно количеству столбцов
+							if (count($values) == count($rows)) {
+								foreach ($values as $column => $value) {
+									$worksheet->setCellValueByColumnAndRow($column, $row, $value);
+
+									$worksheet->getStyleByColumnAndRow($column, $row)->getNumberFormat()->setFormatCode($cells_types ? $cells_types[$columns_names[$column]] : PHPExcel_Style_NumberFormat::FORMAT_GENERAL);
+								}
+
+								// Увеличиваем счетчик
+								$row++;
+							}
 						}
 
 						// Создаем "писателя"
@@ -413,5 +494,45 @@
 			}
 
 			return false;
+		}
+
+		/**
+		 * Геттер имени файла
+		 *
+		 * @return string - Имя файла
+		 */
+		public
+		function getFileName() {
+			return $this->excel_file;
+		}
+
+		/**
+		 * Сеттер имени файла
+		 *
+		 * @param string $filename - Новое имя файла
+		 */
+		public
+		function setFileName($filename) {
+			$this->excel_file = $filename;
+		}
+
+		/**
+		 * Геттер подключения к MySQL
+		 *
+		 * @return mysqli - Подключение MySQL
+		 */
+		public
+		function getConnection() {
+			return $this->mysql_connect;
+		}
+
+		/**
+		 * Сеттер подключения к MySQL
+		 *
+		 * @param mysqli $connection - Новое подключение MySQL
+		 */
+		public
+		function setConnection($connection) {
+			$this->mysql_connect = $connection;
 		}
 	}

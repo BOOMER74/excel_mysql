@@ -93,7 +93,7 @@
 		false,
 		false,
 		false,
-		false,
+		1,
 		array(
 			"INT(11) NOT NULL AUTO_INCREMENT",
 			"VARCHAR(50) NOT NULL",
@@ -121,5 +121,89 @@
 				function ($value) {
 					return floatval($value) > 20000.0;
 				}
+		)
+	) ? "OK\n" : "FAIL\n";
+
+	// Изменяем имя файла
+	$excel_mysql_import_export->setFileName("export1.xlsx");
+
+	// Экспортируем таблицу MySQL в Excel с указанием какие столбцы выгружать и заголовками столбцов
+	echo $excel_mysql_import_export->mysql_to_excel(
+		"excel_mysql_by_index_with_option_1",
+		"Экспорт",
+		array(
+			"first_name",
+			"last_name"
+		),
+		array(
+			"Имя",
+			"Фамилия"
+		)
+	) ? "OK\n" : "FAIL\n";
+
+	// Изменяем имя файла
+	$excel_mysql_import_export->setFileName("export2.xlsx");
+
+	// Экспортируем таблицу MySQL в Excel с указанием какие столбцы выгружать и заголовками столбцов, условиями выборки и преобразованием значения столбца
+	echo $excel_mysql_import_export->mysql_to_excel(
+		"excel_mysql_by_index_with_option_2",
+		"Экспорт",
+		array(
+			"id",
+			"first_name",
+			"last_name",
+			"pay"
+		),
+		array(
+			"№",
+			"Имя",
+			"Фамилия",
+			"Зарплата"
+		), false,
+		false,
+		array(
+			"pay" =>
+				function ($value) {
+					return floatval($value) > 20000.0;
+				}
+		),
+		false,
+		array(
+			"pay" =>
+				function ($value) {
+					return $value . " руб.";
+				}
+		)
+	) ? "OK\n" : "FAIL\n";
+
+	// Изменяем имя файла
+	$excel_mysql_import_export->setFileName("export3.xlsx");
+
+	// Экспортируем таблицу MySQL в Excel с указанием какие столбцы выгружать и заголовками столбцов
+	echo $excel_mysql_import_export->mysql_to_excel(
+		"excel_mysql_by_index_with_option_3",
+		"Экспорт",
+		array(
+			"id",
+			"first_name",
+			"last_name",
+			"pay"
+		),
+		array(
+			"№",
+			"Имя",
+			"Фамилия",
+			"Зарплата"
+		),
+		false,
+		false,
+		false,
+		false,
+		false,
+		array(
+			"id"         => PHPExcel_Style_NumberFormat::FORMAT_NUMBER,
+			"first_name" => PHPExcel_Style_NumberFormat::FORMAT_TEXT,
+			"last_name"  => PHPExcel_Style_NumberFormat::FORMAT_TEXT,
+			"pay"        => PHPExcel_Style_NumberFormat::FORMAT_NUMBER
 		)
 	) ? "OK\n" : "FAIL\n";
