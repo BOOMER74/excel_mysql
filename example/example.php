@@ -179,7 +179,7 @@
 	// Изменяем имя файла
 	$excel_mysql_import_export->setFileName("export3.xlsx");
 
-	// Экспортируем таблицу MySQL в Excel с указанием какие столбцы выгружать и заголовками столбцов
+	// Экспортируем таблицу MySQL в Excel с указанием какие столбцы выгружать, заголовками столбцов и форматами ячеек
 	echo $excel_mysql_import_export->mysql_to_excel(
 		"excel_mysql_by_index_with_option_3",
 		"Экспорт",

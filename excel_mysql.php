@@ -373,14 +373,14 @@
 		 * @param bool|array $condition_functions - Массив функций с условиями добавления строк в файл Excel (столбец => функция)
 		 * @param bool|array $condition_sql_query - Строка прямого условного SQL запроса ("x = y AND x != z")
 		 * @param bool|array $transform_functions - Массив функции для изменения значения столбца (столбец => функция)
-		 * @param bool|array $cells_types         - Массив типов для ячеек по столбцу (столбец => тип из PHPExcel_Style_NumberFormat)
+		 * @param bool|array $cells_formats       - Массив форматов для ячеек по столбцу (столбец => тип из PHPExcel_Style_NumberFormat)
 		 * @param string     $file_creator        - Автор документа
 		 * @param string     $excel_format        - Формат файла Excel
 		 *
 		 * @return bool - Флаг, удалось ли выполнить функцию в полном объеме
 		 */
 		public
-		function mysql_to_excel($table_name, $worksheet_name, $columns_names = false, $headers_names = false, $start_row_index = false, $stop_row_index = false, $condition_functions = false, $condition_sql_query = false, $transform_functions = false, $cells_types = false, $file_creator = "excel_mysql", $excel_format = "Excel2007") {
+		function mysql_to_excel($table_name, $worksheet_name, $columns_names = false, $headers_names = false, $start_row_index = false, $stop_row_index = false, $condition_functions = false, $condition_sql_query = false, $transform_functions = false, $cells_formats = false, $file_creator = "excel_mysql", $excel_format = "Excel2007") {
 			// Проверяем соединение с MySQL
 			if (!$this->mysql_connect->connect_error) {
 				// Проверяем, что $columns_names это массив
@@ -401,10 +401,10 @@
 					}
 				}
 
-				// Проверяем, что $cells_types это массив и его длина соответствует $columns_names
-				if ($columns_names && $cells_types) {
-					if (is_array($cells_types)) {
-						if (count($columns_names) != count($cells_types)) {
+				// Проверяем, что $cells_formats это массив и его длина соответствует $columns_names
+				if ($columns_names && $cells_formats) {
+					if (is_array($cells_formats)) {
+						if (count($columns_names) != count($cells_formats)) {
 							return false;
 						}
 					} else {
@@ -474,7 +474,7 @@
 								foreach ($values as $column => $value) {
 									$worksheet->setCellValueByColumnAndRow($column, $row, $value);
 
-									$worksheet->getStyleByColumnAndRow($column, $row)->getNumberFormat()->setFormatCode($cells_types ? $cells_types[$columns_names[$column]] : PHPExcel_Style_NumberFormat::FORMAT_GENERAL);
+									$worksheet->getStyleByColumnAndRow($column, $row)->getNumberFormat()->setFormatCode($cells_formats ? $cells_formats[$columns_names[$column]] : PHPExcel_Style_NumberFormat::FORMAT_GENERAL);
 								}
 
 								// Увеличиваем счетчик
