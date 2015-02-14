@@ -37,7 +37,7 @@
 		 *
 		 * @param PHPExcel_Worksheet $worksheet                - Лист Excel
 		 * @param string             $table_name               - Имя таблицы MySQL
-		 * @param int|array          $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
+		 * @param int|array          $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n). Если указано больше столбцов, чем на листе Excel, будут использованы значения по умолчанию указанных типов столбоц
 		 * @param bool|int           $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
 		 * @param bool|array         $condition_functions      - Массив функций с условиями добавления строки по значению столбца (столбец => функция)
 		 * @param bool|array         $transform_functions      - Массив функций для изменения значения столбца (столбец => функция)
@@ -62,8 +62,12 @@
 				// Если в качестве имен столбцов передан массив, то проверяем соответствие его длинны с количеством столбцов
 				if ($columns_names) {
 					if (is_array($columns_names)) {
-						if (count($columns_names) != $columns_count) {
+						$columns_names_count = count($columns_names);
+
+						if ($columns_names_count < $columns_count) {
 							return false;
+						} elseif ($columns_names_count > $columns_count) {
+							$columns_count = $columns_names_count;
 						}
 					} else {
 						return false;
@@ -82,18 +86,21 @@
 					}
 				}
 
+				$table_name = "`{$table_name}`";
+
 				// Проверяем, что $columns_names - массив и $unique_column_for_update находиться в его пределах
 				if ($unique_column_for_update) {
-					$unique_column_for_update = is_array($columns_names) ? ($unique_column_for_update <= count($columns_names) ? "`" . $columns_names[$unique_column_for_update - 1] . "`" : false) : false;
+					$unique_column_for_update = is_array($columns_names) ? ($unique_column_for_update <= count($columns_names) ? "`{$columns_names[$unique_column_for_update - 1]}`" : false) : false;
 				}
 
 				// Перебираем столбцы листа Excel и генерируем строку с именами через запятую
 				for ($column = 0; $column < $columns_count; $column++) {
-					/** @noinspection PhpDeprecationInspection */
-					$columns[] = "`" . (is_array($columns_names) ? $columns_names[$column] : ($columns_names == 0 ? "column" . $column : $worksheet->getCellByColumnAndRow($column, $columns_names)->getCalculatedValue())) . "`";
+					$column_name = (is_array($columns_names) ? $columns_names[$column] : ($columns_names == 0 ? "column{$column}" : $worksheet->getCellByColumnAndRow($column, $columns_names)->getValue()));
+
+					$columns[] = "`{$column_name}`";
 				}
 
-				$query_string = "DROP TABLE IF EXISTS `" . $table_name . "`";
+				$query_string = "DROP TABLE IF EXISTS {$table_name}";
 
 				if (defined("EXCEL_MYSQL_DEBUG")) {
 					if (EXCEL_MYSQL_DEBUG) {
@@ -125,15 +132,19 @@
 						$columns_keys = array();
 
 						foreach ($table_keys as $key => $value) {
-							$columns_keys[] = $value . " (`" . $key . "`)";
+							$columns_keys[] = "{$value} (`{$key}`)";
 						}
 
-						$columns_keys = ", " . implode(", ", $columns_keys);
+						$columns_keys_list = implode(", ", $columns_keys);
+
+						$columns_keys = ", {$columns_keys_list}";
 					} else {
 						$columns_keys = "";
 					}
 
-					$query_string = "CREATE TABLE IF NOT EXISTS `" . $table_name . "` (" . implode(", ", $columns_types) . $columns_keys . ") COLLATE = '" . $table_encoding . "' ENGINE = " . $table_engine;
+					$columns_types_list = implode(", ", $columns_types);
+
+					$query_string = "CREATE TABLE IF NOT EXISTS {$table_name} ({$columns_types_list}{$columns_keys}) COLLATE = '{$table_encoding}' ENGINE = {$table_engine}";
 
 					if (defined("EXCEL_MYSQL_DEBUG")) {
 						if (EXCEL_MYSQL_DEBUG) {
@@ -148,6 +159,9 @@
 
 						// Количество строк на листе Excel
 						$rows_count = $worksheet->getHighestRow();
+
+						// Получаем массив всех объединенных ячеек
+						$all_merged_cells = $worksheet->getMergeCells();
 
 						// Перебираем строки листа Excel
 						for ($row = ($start_row_index ? $start_row_index : (is_array($columns_names) ? 1 : $columns_names + 1)); $row <= $rows_count; $row++) {
@@ -167,23 +181,20 @@
 								$cell = $worksheet->getCellByColumnAndRow($column, $row);
 
 								// Перебираем массив объединенных ячеек листа Excel
-								foreach ($worksheet->getMergeCells() as $mergedCells) {
+								foreach ($all_merged_cells as $merged_cells) {
 									// Если текущая ячейка - объединенная,
-									if ($cell->isInRange($mergedCells)) {
+									if ($cell->isInRange($merged_cells)) {
 										// то вычисляем значение первой объединенной ячейки, и используем её в качестве значения текущей ячейки
-										$merged_value = explode(":", $mergedCells);
+										$merged_value = explode(":", $merged_cells);
 
-										/** @noinspection PhpDeprecationInspection */
-										$merged_value = $worksheet->getCell($merged_value[0])->getCalculatedValue();
+										$merged_value = $worksheet->getCell($merged_value[0])->getValue();
 
 										break;
 									}
 								}
 
 								// Проверяем, что ячейка не объединенная: если нет, то берем ее значение, иначе значение первой объединенной ячейки
-
-								/** @noinspection PhpDeprecationInspection */
-								$value = strlen($merged_value) == 0 ? $cell->getCalculatedValue() : $merged_value;
+								$value = strlen($merged_value) == 0 ? $cell->getValue() : $merged_value;
 
 								// Если задан массив функций с условиями
 								if ($condition_functions) {
@@ -197,7 +208,7 @@
 
 								$value = $transform_functions ? (isset($transform_functions[$columns_names[$column]]) ? $transform_functions[$columns_names[$column]]($value) : $value) : $value;
 
-								$values[] = "'" . $this->mysql_connect->real_escape_string($value) . "'";
+								$values[] = "'{$this->mysql_connect->real_escape_string($value)}'";
 							}
 
 							// Если количество столбцов не равно количеству значений, значит строка не прошла проверку
@@ -217,12 +228,12 @@
 								$id_list_in_import[] = $columns_values[$unique_column_for_update];
 
 								// Создаем условие выборки
-								$where = " WHERE " . $unique_column_for_update . " = " . $columns_values[$unique_column_for_update];
+								$where = " WHERE {$unique_column_for_update} = {$columns_values[$unique_column_for_update]}";
 
 								// Удаляем столбец выборки
 								unset($columns_values[$unique_column_for_update]);
 
-								$query_string = "SELECT COUNT(*) AS count FROM `" . $table_name . "`" . $where;
+								$query_string = "SELECT COUNT(*) AS count FROM {$table_name}{$where}";
 
 								if (defined("EXCEL_MYSQL_DEBUG")) {
 									if (EXCEL_MYSQL_DEBUG) {
@@ -239,10 +250,12 @@
 									$set = array();
 
 									foreach ($columns_values as $column => $value) {
-										$set[] = $column . " = " . $value;
+										$set[] = "{$column} = {$value}";
 									}
 
-									$query_string = "UPDATE `" . $table_name . "` SET " . implode(", ", $set) . $where;
+									$set_list = implode(", ", $set);
+
+									$query_string = "UPDATE {$table_name} SET {$set_list}{$where}";
 
 									if (defined("EXCEL_MYSQL_DEBUG")) {
 										if (EXCEL_MYSQL_DEBUG) {
@@ -260,7 +273,10 @@
 
 							// Добавляем строку в таблицу MySQL
 							if ($add_to_table) {
-								$query_string = "INSERT INTO `" . $table_name . "` (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $values) . ")";
+								$columns_list = implode(", ", $columns);
+								$values_list  = implode(", ", $values);
+
+								$query_string = "INSERT INTO {$table_name} ({$columns_list}) VALUES ({$values_list})";
 
 								if (defined("EXCEL_MYSQL_DEBUG")) {
 									if (EXCEL_MYSQL_DEBUG) {
@@ -275,7 +291,9 @@
 						}
 
 						if (!empty($id_list_in_import)) {
-							$query_string = "DELETE FROM `" . $table_name . "` WHERE " . $unique_column_for_update . " NOT IN (" . implode(", ", $id_list_in_import) . ")";
+							$id_list = implode(", ", $id_list_in_import);
+
+							$query_string = "DELETE FROM {$table_name} WHERE {$unique_column_for_update} NOT IN ({$id_list})";
 
 							if (defined("EXCEL_MYSQL_DEBUG")) {
 								if (EXCEL_MYSQL_DEBUG) {
@@ -299,7 +317,7 @@
 		 *
 		 * @param string     $table_name               - Имя таблицы MySQL
 		 * @param int        $index                    - Индекс листа Excel
-		 * @param int|array  $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
+		 * @param int|array  $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n). Если указано больше столбцов, чем на листе Excel, будут использованы значения по умолчанию указанных типов столбоц
 		 * @param bool|int   $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
 		 * @param bool|array $condition_functions      - Массив функций с условиями добавления строки по значению столбца (столбец => функция)
 		 * @param bool|array $transform_functions      - Массив функций для изменения значения столбца (столбец => функция)
@@ -326,7 +344,7 @@
 		 * Функция импорта всех листов Excel
 		 *
 		 * @param array      $tables_names             - Массив имен таблиц MySQL
-		 * @param int|array  $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n)
+		 * @param int|array  $columns_names            - Строка или массив с именами столбцов таблицы MySQL (0 - имена типа column + n). Если указано больше столбцов чем на листе Excel будут использованы значения по умолчанию
 		 * @param bool|int   $start_row_index          - Номер строки, с которой начинается обработка данных (например, если 1 строка шапка таблицы). Нумерация начинается с 1, как в Excel
 		 * @param bool|array $condition_functions      - Массив функций с условиями добавления строки по значению столбца (столбец => функция)
 		 * @param bool|array $transform_functions      - Массив функций для изменения значения столбца (столбец => функция)
@@ -348,7 +366,7 @@
 				// Перебираем все листы Excel и преобразуем в таблицу MySQL
 				foreach ($PHPExcel_file->getWorksheetIterator() as $index => $worksheet) {
 					// Имя берётся из массива, если элемент не существует, берем 1й и добавляем индекс
-					$table_name = array_key_exists($index, $tables_names) ? $tables_names[$index] : $tables_names[0] . $index;
+					$table_name = array_key_exists($index, $tables_names) ? $tables_names[$index] : "{$tables_names[0]}{$index}";
 
 					if (!$this->excel_to_mysql($worksheet, $table_name, $columns_names, $start_row_index, $condition_functions, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine)) {
 						return false;
@@ -412,8 +430,28 @@
 					}
 				}
 
+				$columns_names_list = $columns_names ? implode("`, `", $columns_names) : "*";
+
+				if ($columns_names) {
+					$columns_names_list = "`{$columns_names_list}`";
+				}
+
+				$condition_sql_query = $condition_sql_query ? " {$condition_sql_query}" : "";
+
 				// Запрос MySQL, возвращающий таблицу
-				$query_string = "SELECT " . ($columns_names ? "`" . implode("`, `", $columns_names) . "`" : "*") . " FROM " . $table_name . ($condition_sql_query ? " " . $condition_sql_query : "") . ($start_row_index || $stop_row_index ? " LIMIT " . ($start_row_index ? intval($start_row_index) : "1") . ($start_row_index && $stop_row_index ? ", " : "") . ($stop_row_index ? intval($stop_row_index) : "") : "");
+				$query_string = "SELECT {$columns_names_list} FROM {$table_name}";
+
+				if ($condition_sql_query) {
+					$query_string = "{$query_string}{$condition_sql_query}";
+				}
+
+				if ($start_row_index || $stop_row_index) {
+					$limit_start     = $start_row_index ? intval($start_row_index) : "1";
+					$limit_separator = $start_row_index && $stop_row_index ? ", " : "";
+					$limit_stop      = $stop_row_index ? intval($stop_row_index) : "";
+
+					$query_string = "{$query_string} LIMIT {$limit_start}{$limit_separator}{$limit_stop}";
+				}
 
 				if (defined("EXCEL_MYSQL_DEBUG")) {
 					if (EXCEL_MYSQL_DEBUG) {
@@ -425,17 +463,17 @@
 					// Если таблица MySQL не пустая
 					if ($query->num_rows > 0) {
 						// Создаем экземпляр класса PHPExcel
-						$phpExcel = new \PHPExcel();
+						$PHPExcel_instance = new \PHPExcel();
 
 						// Задаем лист Excel
-						$phpExcel->setActiveSheetIndex(0);
-						$worksheet = $phpExcel->getActiveSheet();
+						$PHPExcel_instance->setActiveSheetIndex(0);
+						$worksheet = $PHPExcel_instance->getActiveSheet();
 
 						// Задаем имя листа Excel
 						$worksheet->setTitle($worksheet_name);
 
 						// Задаем автора (создателя файла)
-						$phpExcel->getProperties()->setCreator($file_creator);
+						$PHPExcel_instance->getProperties()->setCreator($file_creator);
 
 						// Если были заданы заголовки, то записываем их в файл
 						if ($headers_names) {
@@ -483,7 +521,7 @@
 						}
 
 						// Создаем "писателя"
-						$writer = \PHPExcel_IOFactory::createWriter($phpExcel, $excel_format);
+						$writer = \PHPExcel_IOFactory::createWriter($PHPExcel_instance, $excel_format);
 
 						// Сохраняем файл
 						$writer->save($this->excel_file);

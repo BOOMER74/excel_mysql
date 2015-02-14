@@ -41,9 +41,25 @@
 		)
 	) ? "OK\n" : "FAIL\n";
 
-	// Указываем названия столбцов в таблице MySQL и функцию изменения значения для конкретного столбца (например для преобразования дат из Excel в MySQL)
+	// Указываем названия столбцов в таблице MySQL. Дополнительно указываем столбцы которые, в случае отсутствия, будут заполнены значением по умолчанию
 	echo $excel_mysql_import_export->excel_to_mysql_by_index(
 		"excel_mysql_by_index_with_option_2",
+		0,
+		array(
+			"id",
+			"first_name",
+			"last_name",
+			"email",
+			"pay",
+			"empty_1",
+			"empty_2",
+			"empty_3"
+		)
+	) ? "OK\n" : "FAIL\n";
+
+	// Указываем названия столбцов в таблице MySQL и функцию изменения значения для конкретного столбца (например для преобразования дат из Excel в MySQL)
+	echo $excel_mysql_import_export->excel_to_mysql_by_index(
+		"excel_mysql_by_index_with_option_3",
 		0,
 		array(
 			"id",
@@ -63,7 +79,7 @@
 	) ? "OK\n" : "FAIL\n";
 
 	// Экспортируем таблицу MySQL в Excel
-	echo $excel_mysql_import_export->mysql_to_excel("excel_mysql_by_index_with_option_2", "Экспорт") ? "OK\n" : "FAIL\n";
+	echo $excel_mysql_import_export->mysql_to_excel("excel_mysql_by_index_with_option_3", "Экспорт") ? "OK\n" : "FAIL\n";
 
 	// Указываем названия столбцов в таблице MySQL и уникальный столбец для обновления таблицы
 	echo $excel_mysql_import_export->excel_to_mysql_by_index(
@@ -81,7 +97,7 @@
 
 	// Указываем названия столбцов в таблице MySQL, их типы и ключевое поле
 	echo $excel_mysql_import_export->excel_to_mysql_by_index(
-		"excel_mysql_by_index_with_option_3",
+		"excel_mysql_by_index_with_option_4",
 		0,
 		array(
 			"id",
@@ -106,7 +122,7 @@
 
 	// Указываем названия столбцов в таблице MySQL и условия добавления
 	echo $excel_mysql_import_export->excel_to_mysql_by_index(
-		"excel_mysql_by_index_with_option_4",
+		"excel_mysql_by_index_with_option_5",
 		0,
 		array(
 			"id",
@@ -146,7 +162,7 @@
 
 	// Экспортируем таблицу MySQL в Excel с указанием какие столбцы выгружать и заголовками столбцов, условиями выборки и преобразованием значения столбца
 	echo $excel_mysql_import_export->mysql_to_excel(
-		"excel_mysql_by_index_with_option_2",
+		"excel_mysql_by_index_with_option_3",
 		"Экспорт",
 		array(
 			"id",
@@ -181,7 +197,7 @@
 
 	// Экспортируем таблицу MySQL в Excel с указанием какие столбцы выгружать, заголовками столбцов и форматами ячеек
 	echo $excel_mysql_import_export->mysql_to_excel(
-		"excel_mysql_by_index_with_option_3",
+		"excel_mysql_by_index_with_option_4",
 		"Экспорт",
 		array(
 			"id",
