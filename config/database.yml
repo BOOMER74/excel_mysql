@@ -1,0 +1,6 @@
+test:
+    adapter: mysql2
+    database: excel_mysql_base
+    username: user
+    password: password
+    encoding: utf8

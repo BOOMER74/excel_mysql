@@ -139,7 +139,7 @@
 
 						$columns_keys = ", {$columns_keys_list}";
 					} else {
-						$columns_keys = "";
+						$columns_keys = null;
 					}
 
 					$columns_types_list = implode(", ", $columns_types);
@@ -175,7 +175,7 @@
 								}
 
 								// Строка со значением объединенных ячеек листа Excel
-								$merged_value = "";
+								$merged_value = null;
 
 								// Ячейка листа Excel
 								$cell = $worksheet->getCellByColumnAndRow($column, $row);
@@ -430,13 +430,18 @@
 					}
 				}
 
+				// Проверяем, если задан $cells_formats, но не задан $columns_names
+				if ($cells_formats && !$columns_names) {
+					return false;
+				}
+
 				$columns_names_list = $columns_names ? implode("`, `", $columns_names) : "*";
 
 				if ($columns_names) {
 					$columns_names_list = "`{$columns_names_list}`";
 				}
 
-				$condition_sql_query = $condition_sql_query ? " {$condition_sql_query}" : "";
+				$condition_sql_query = $condition_sql_query ? " WHERE {$condition_sql_query}" : null;
 
 				// Запрос MySQL, возвращающий таблицу
 				$query_string = "SELECT {$columns_names_list} FROM {$table_name}";
@@ -447,8 +452,8 @@
 
 				if ($start_row_index || $stop_row_index) {
 					$limit_start     = $start_row_index ? intval($start_row_index) : "1";
-					$limit_separator = $start_row_index && $stop_row_index ? ", " : "";
-					$limit_stop      = $stop_row_index ? intval($stop_row_index) : "";
+					$limit_separator = $start_row_index && $stop_row_index ? ", " : null;
+					$limit_stop      = $stop_row_index ? intval($stop_row_index) : null;
 
 					$query_string = "{$query_string} LIMIT {$limit_start}{$limit_separator}{$limit_stop}";
 				}
