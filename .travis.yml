@@ -9,7 +9,7 @@ php:
     - nightly
 
 before_script:
-    - mysql -uroot -e "CREATE DATABASE 'excel_mysql_base' CHARACTER SET utf8 COLLATE utf8_general_ci"
+    - mysql -uroot -e "CREATE DATABASE excel_mysql_base CHARACTER SET utf8 COLLATE utf8_general_ci"
     - mysql -uroot -e "GRANT ALL PRIVILEGES ON excel_mysql_base.* TO 'user'@'localhost' IDENTIFIED BY 'pass'"
     - git clone https://github.com/PHPOffice/PHPExcel.git
     - mv PHPExcel/ tmp/
