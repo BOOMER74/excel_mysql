@@ -276,7 +276,7 @@
 		array(
 			"pay" =>
 				function ($value) {
-					return $value . " руб.";
+					return "{$value} руб.";
 				}
 		)
 	));

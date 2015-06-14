@@ -116,9 +116,9 @@
 					foreach ($columns as $index => $value) {
 						if ($value != "``") {
 							if ($table_types) {
-								$columns_types[] = $value . " " . $table_types[$index];
+								$columns_types[] = "{$value} {$table_types[$index]}";
 							} else {
-								$columns_types[] = $value . " TEXT NOT NULL";
+								$columns_types[] = "{$value} TEXT NOT NULL";
 							}
 						} else {
 							$ignore_columns[] = $index;

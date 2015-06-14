@@ -2,7 +2,7 @@
 	// Подключаем библиотеку
 	require_once "PHPExcel.php";
 	// Подключаем модуль
-	require_once "../library/excel_mysql.php";
+	require_once __DIR__ . "/../library/excel_mysql.php";
 
 	// Определяем константу для включения режима отладки (режим отладки выключен)
 	define("EXCEL_MYSQL_DEBUG", false);
@@ -188,7 +188,7 @@
 		array(
 			"pay" =>
 				function ($value) {
-					return $value . " руб.";
+					return "{$value} руб.";
 				}
 		)
 	) ? "OK\n" : "FAIL\n";
