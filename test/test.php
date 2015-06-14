@@ -4,7 +4,7 @@
 
 	require_once "PHPExcel.php";
 
-	require_once "../library/excel_mysql.php";
+	require_once __DIR__ . "../library/excel_mysql.php";
 
 	define("EXCEL_MYSQL_DEBUG", false);
 
