@@ -140,6 +140,44 @@
 		)
 	) ? "OK\n" : "FAIL\n";
 
+	// Указываем названия столбцов в таблице MySQL, игнорируя столбец first_name. Для игнорирования можно использовать любое ложное (null, false, "", 0, -1...) значение
+	echo $excel_mysql_import_export->excel_to_mysql_by_index(
+		"excel_mysql_by_index_with_option_6",
+		0,
+		array(
+			"id",
+			null,
+			"last_name",
+			"email",
+			"pay"
+		)
+	) ? "OK\n" : "FAIL\n";
+
+	// Указываем названия столбцов в таблице MySQL, их типы и ключевое поле, игнорируя столбец first_name
+	echo $excel_mysql_import_export->excel_to_mysql_by_index(
+		"excel_mysql_by_index_with_option_6",
+		0,
+		array(
+			"id",
+			null,
+			"last_name",
+			"email",
+			"pay"
+		),
+		false,
+		false,
+		false,
+		1,
+		array(
+			"INT(11) NOT NULL AUTO_INCREMENT",
+			null,
+			"VARCHAR(50) NOT NULL",
+			"VARCHAR(100) NOT NULL",
+			"FLOAT(10,2) NOT NULL"
+		),
+		array("id" => "PRIMARY KEY")
+	) ? "OK\n" : "FAIL\n";
+
 	// Изменяем имя файла
 	$excel_mysql_import_export->setFileName("export1.xlsx");
 

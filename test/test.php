@@ -18,7 +18,7 @@
 		throw new Exception("MySQL set charset error!");
 	}
 
-	if (!$connection->query("DROP TABLE IF EXISTS excel_mysql_data, excel_mysql_by_index, excel_mysql_iterate, excel_mysql_by_index_with_option_1, excel_mysql_by_index_with_option_2, excel_mysql_by_index_with_option_3, excel_mysql_by_index_with_option_4, excel_mysql_by_index_with_option_5")) {
+	if (!$connection->query("DROP TABLE IF EXISTS excel_mysql_data, excel_mysql_by_index, excel_mysql_iterate, excel_mysql_by_index_with_option_1, excel_mysql_by_index_with_option_2, excel_mysql_by_index_with_option_3, excel_mysql_by_index_with_option_4, excel_mysql_by_index_with_option_5, excel_mysql_by_index_with_option_6")) {
 		throw new Exception("MySQL query error!");
 	}
 
@@ -158,6 +158,42 @@
 		array(
 			"INT(11) NOT NULL AUTO_INCREMENT",
 			"VARCHAR(50) NOT NULL",
+			"VARCHAR(50) NOT NULL",
+			"VARCHAR(100) NOT NULL",
+			"FLOAT(10,2) NOT NULL"
+		),
+		array("id" => "PRIMARY KEY")
+	));
+
+	assert($excel_mysql_import_export->excel_to_mysql_by_index(
+		"excel_mysql_by_index_with_option_6",
+		0,
+		array(
+			"id",
+			null,
+			"last_name",
+			"email",
+			"pay"
+		)
+	));
+
+	assert($excel_mysql_import_export->excel_to_mysql_by_index(
+		"excel_mysql_by_index_with_option_6",
+		0,
+		array(
+			"id",
+			null,
+			"last_name",
+			"email",
+			"pay"
+		),
+		false,
+		false,
+		false,
+		false,
+		array(
+			"INT(11) NOT NULL AUTO_INCREMENT",
+			null,
 			"VARCHAR(50) NOT NULL",
 			"VARCHAR(100) NOT NULL",
 			"FLOAT(10,2) NOT NULL"
@@ -314,6 +350,6 @@
 		throw new Exception("Remove file error!");
 	}
 
-	if (!$connection->query("DROP TABLE excel_mysql_data, excel_mysql_by_index, excel_mysql_iterate, excel_mysql_by_index_with_option_1, excel_mysql_by_index_with_option_2, excel_mysql_by_index_with_option_3, excel_mysql_by_index_with_option_4, excel_mysql_by_index_with_option_5")) {
+	if (!$connection->query("DROP TABLE excel_mysql_data, excel_mysql_by_index, excel_mysql_iterate, excel_mysql_by_index_with_option_1, excel_mysql_by_index_with_option_2, excel_mysql_by_index_with_option_3, excel_mysql_by_index_with_option_4, excel_mysql_by_index_with_option_5, excel_mysql_by_index_with_option_6")) {
 		throw new Exception("MySQL query error!");
 	}
