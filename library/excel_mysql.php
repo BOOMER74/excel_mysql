@@ -97,7 +97,7 @@
 				for ($column = 0; $column < $columns_count; $column++) {
 					$column_name = (is_array($columns_names) ? $columns_names[$column] : ($columns_names == 0 ? "column{$column}" : $worksheet->getCellByColumnAndRow($column, $columns_names)->getValue()));
 
-					$columns[] = "`{$column_name}`";
+					$columns[] = $column_name ? "`{$column_name}`" : null;
 				}
 
 				$query_string = "DROP TABLE IF EXISTS {$table_name}";
@@ -114,16 +114,16 @@
 
 					// Обходим столбцы и присваиваем типы
 					foreach ($columns as $index => $value) {
-						if ($value != "``") {
+						if ($value == null) {
+							$ignore_columns[] = $index;
+
+							unset($columns[$index]);
+						} else {
 							if ($table_types) {
 								$columns_types[] = "{$value} {$table_types[$index]}";
 							} else {
 								$columns_types[] = "{$value} TEXT NOT NULL";
 							}
-						} else {
-							$ignore_columns[] = $index;
-
-							unset($columns[$index]);
 						}
 					}
 
