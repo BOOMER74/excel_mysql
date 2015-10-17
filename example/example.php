@@ -1,6 +1,6 @@
 <?php
 	// Подключаем библиотеку
-	require_once "PHPExcel.php";
+	require_once "../PHPExcel/Classes/PHPExcel.php";
 	// Подключаем модуль
 	require_once __DIR__ . "/../library/excel_mysql.php";
 
