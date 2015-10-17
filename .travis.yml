@@ -14,10 +14,12 @@ before_install:
     - pip install --user codecov
 
 before_script:
+    - composer self-update
+    - composer require "phpunit/phpunit=5.0.*"
     - mysql -uroot -e "CREATE DATABASE excel_mysql_base CHARACTER SET utf8 COLLATE utf8_general_ci"
     - mysql -uroot -e "GRANT ALL PRIVILEGES ON excel_mysql_base.* TO 'user'@'localhost' IDENTIFIED BY 'pass'"
 
-script: php test/test.php
+script: vendor/bin/phpunit --coverage-clover=coverage.xml
 
 after_success:
     - codecov
