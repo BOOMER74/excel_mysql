@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="vendor/autoload.php">
+<phpunit>
 	<testsuites>
 		<testsuite name="Excel_mysql_test">
 			<file>tests/test.php</file>
@@ -7,10 +7,10 @@
 	</testsuites>
 	<filter>
 		<blacklist>
+			<directory suffix=".php">example</directory>
 			<directory suffix=".php">PHPExcel</directory>
 		</blacklist>
 		<whitelist>
-			<directory suffix=".php">example</directory>
 			<directory suffix=".php">library</directory>
 		</whitelist>
 	</filter>

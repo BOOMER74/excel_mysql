@@ -1,5 +1,4 @@
 <?php
-	require_once __DIR__ . "/../vendor/autoload.php";
 	require_once __DIR__ . "/../library/excel_mysql.php";
 	require_once __DIR__ . "/../PHPExcel/Classes/PHPExcel.php";
 
