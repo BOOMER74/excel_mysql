@@ -429,7 +429,7 @@
 
 			$this->assertTrue($connection->set_charset("utf8"));
 
-			$this->assertTrue($connection->query("DROP TABLE IF EXISTS excel_mysql_data, excel_mysql_failure"));
+			$this->assertTrue($connection->query("DROP TABLE IF EXISTS excel_mysql_data"));
 
 			$this->assertTrue($connection->query("CREATE TABLE `excel_mysql_data` (`id` INT(11) NOT NULL AUTO_INCREMENT, `first_name` VARCHAR(50) NOT NULL, `last_name` VARCHAR(50) NOT NULL, `email`   VARCHAR(100) NOT NULL, `pay` FLOAT(10, 2) NOT NULL, PRIMARY KEY (`id`))"));
 
@@ -538,6 +538,8 @@
 			));
 
 			$this->assertFalse(file_exists("test.xlsx"));
+
+			$this->assertTrue($connection->query("DROP TABLE IF EXISTS excel_mysql_data"));
 		}
 
 		public
