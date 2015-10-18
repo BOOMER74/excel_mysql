@@ -1,12 +1,105 @@
 <?php
 	require_once __DIR__ . "/../library/excel_mysql.php";
-	require_once __DIR__ . "/../PHPExcel/Classes/PHPExcel.php";
 
 	define("EXCEL_MYSQL_DEBUG", false);
 
 	class Excel_mysql_test extends PHPUnit_Framework_TestCase {
 		public
-		function testAll() {
+		function testConstructor() {
+			$this->setExpectedException("Exception");
+
+			new Excel_mysql(new mysqli(), "./test.xlsx");
+		}
+
+		public
+		function testFailures() {
+			require_once __DIR__ . "/../PHPExcel/Classes/PHPExcel.php";
+
+			$connection = new mysqli("localhost", "user", "pass", "excel_mysql_base");
+
+			$this->assertEquals($connection->connect_errno, 0);
+
+			$this->assertTrue($connection->set_charset("utf8"));
+
+			$this->assertTrue($connection->query("DROP TABLE IF EXISTS excel_mysql_data, excel_mysql_failure"));
+
+			$this->assertTrue($connection->query("CREATE TABLE `excel_mysql_data` (`id` INT(11) NOT NULL AUTO_INCREMENT, `first_name` VARCHAR(50) NOT NULL, `last_name` VARCHAR(50) NOT NULL, `email`   VARCHAR(100) NOT NULL, `pay` FLOAT(10, 2) NOT NULL, PRIMARY KEY (`id`))"));
+
+			$this->assertTrue($connection->query("INSERT INTO `excel_mysql_data` (`first_name`, `last_name`, `email`, `pay`) VALUES ('John', 'Smith', 'j.smith@example.com', 10000.00)"));
+			$this->assertTrue($connection->query("INSERT INTO `excel_mysql_data` (`first_name`, `last_name`, `email`, `pay`) VALUES ('Steve', 'Smith', 's.smith@example.com', 11000.00)"));
+			$this->assertTrue($connection->query("INSERT INTO `excel_mysql_data` (`first_name`, `last_name`, `email`, `pay`) VALUES ('Oscar', 'Wild', 'o.wild@example.com', 12250.59)"));
+
+			$excel_mysql_import_export = new Excel_mysql($connection, "./test.xlsx");
+
+			$this->assertTrue($excel_mysql_import_export->mysql_to_excel("excel_mysql_data", "Экспорт"));
+			$this->assertTrue(file_exists("test.xlsx"));
+
+			$this->assertFalse($excel_mysql_import_export->excel_to_mysql_by_index(
+				"excel_mysql_failure",
+				0,
+				array(
+					"id",
+					"first_name",
+					"last_name"
+				)
+			));
+
+			$this->assertFalse($excel_mysql_import_export->excel_to_mysql_by_index(
+				"excel_mysql_failure",
+				0,
+				"fail"
+			));
+
+			$this->assertFalse($excel_mysql_import_export->excel_to_mysql_by_index(
+				"excel_mysql_failure",
+				0,
+				array(
+					"id",
+					"first_name",
+					"last_name",
+					"email",
+					"pay"
+				),
+				false,
+				false,
+				false,
+				false,
+				array(
+					"INT(11) NOT NULL AUTO_INCREMENT",
+					"VARCHAR(50) NOT NULL",
+					"VARCHAR(50) NOT NULL"
+				),
+				array("id" => "PRIMARY KEY")
+			));
+
+			$this->assertFalse($excel_mysql_import_export->excel_to_mysql_by_index(
+				"excel_mysql_failure",
+				0,
+				array(
+					"id",
+					"first_name",
+					"last_name",
+					"email",
+					"pay"
+				),
+				false,
+				false,
+				false,
+				false,
+				"fail",
+				array("id" => "PRIMARY KEY")
+			));
+
+			$this->assertTrue(file_exists("test.xlsx"));
+			$this->assertTrue(unlink("test.xlsx"));
+
+			$this->assertTrue($connection->query("DROP TABLE IF EXISTS excel_mysql_data, excel_mysql_failure"));
+		}
+
+		public
+		function testSuccessful() {
+			require_once __DIR__ . "/../PHPExcel/Classes/PHPExcel.php";
+
 			$connection = new mysqli("localhost", "user", "pass", "excel_mysql_base");
 
 			$this->assertEquals($connection->connect_errno, 0);
@@ -240,14 +333,18 @@
 			$this->assertTrue($excel_mysql_import_export->mysql_to_excel(
 				"excel_mysql_data",
 				"Экспорт",
-				false,
+				array(
+					"first_name",
+					"last_name",
+					"pay"
+				),
 				false,
 				false,
 				false,
 				array(
 					"pay" =>
 						function ($value) {
-							return floatval($value) > 20000.0;
+							return floatval($value) > 10000.0;
 						}
 				)
 			));
@@ -272,7 +369,11 @@
 			$this->assertTrue($excel_mysql_import_export->mysql_to_excel(
 				"excel_mysql_data",
 				"Экспорт",
-				false,
+				array(
+					"first_name",
+					"last_name",
+					"pay"
+				),
 				false,
 				false,
 				false,
@@ -316,5 +417,139 @@
 			$this->assertTrue(unlink("test.xlsx"));
 
 			$this->assertTrue($connection->query("DROP TABLE excel_mysql_data, excel_mysql_by_index, excel_mysql_iterate, excel_mysql_by_index_with_option_1, excel_mysql_by_index_with_option_2, excel_mysql_by_index_with_option_3, excel_mysql_by_index_with_option_4, excel_mysql_by_index_with_option_5, excel_mysql_by_index_with_option_6"));
+		}
+
+		public
+		function  testWrapperFunctions() {
+			$this->assertFalse(file_exists("test.xlsx"));
+
+			$connection = new mysqli("localhost", "user", "pass", "excel_mysql_base");
+
+			$this->assertEquals($connection->connect_errno, 0);
+
+			$this->assertTrue($connection->set_charset("utf8"));
+
+			$this->assertTrue($connection->query("DROP TABLE IF EXISTS excel_mysql_data, excel_mysql_failure"));
+
+			$this->assertTrue($connection->query("CREATE TABLE `excel_mysql_data` (`id` INT(11) NOT NULL AUTO_INCREMENT, `first_name` VARCHAR(50) NOT NULL, `last_name` VARCHAR(50) NOT NULL, `email`   VARCHAR(100) NOT NULL, `pay` FLOAT(10, 2) NOT NULL, PRIMARY KEY (`id`))"));
+
+			$this->assertTrue($connection->query("INSERT INTO `excel_mysql_data` (`first_name`, `last_name`, `email`, `pay`) VALUES ('John', 'Smith', 'j.smith@example.com', 10000.00)"));
+			$this->assertTrue($connection->query("INSERT INTO `excel_mysql_data` (`first_name`, `last_name`, `email`, `pay`) VALUES ('Steve', 'Smith', 's.smith@example.com', 11000.00)"));
+			$this->assertTrue($connection->query("INSERT INTO `excel_mysql_data` (`first_name`, `last_name`, `email`, `pay`) VALUES ('Oscar', 'Wild', 'o.wild@example.com', 12250.59)"));
+
+			$excel_mysql_import_export = new Excel_mysql($connection, "./test.xlsx");
+
+			$this->assertFalse($excel_mysql_import_export->excel_to_mysql_iterate(array()));
+
+			$this->assertFalse($excel_mysql_import_export->mysql_to_excel(
+				"excel_mysql_data",
+				"Экспорт",
+				"fail"
+			));
+
+			$this->assertFalse(file_exists("test.xlsx"));
+
+			$this->assertFalse($excel_mysql_import_export->mysql_to_excel(
+				"excel_mysql_data",
+				"Экспорт",
+				array(
+					"first_name",
+					"last_name"
+				),
+				array(
+					"Имя"
+				)
+			));
+
+			$this->assertFalse(file_exists("test.xlsx"));
+
+			$this->assertFalse($excel_mysql_import_export->mysql_to_excel(
+				"excel_mysql_data",
+				"Экспорт",
+				array(
+					"first_name",
+					"last_name"
+				),
+				"fail"
+			));
+
+			$this->assertFalse(file_exists("test.xlsx"));
+
+			$this->assertFalse($excel_mysql_import_export->mysql_to_excel(
+				"excel_mysql_data",
+				"Экспорт",
+				array(
+					"id",
+					"first_name",
+					"last_name",
+					"pay"
+				),
+				false,
+				false,
+				false,
+				false,
+				false,
+				false,
+				array(
+					"id"         => PHPExcel_Style_NumberFormat::FORMAT_NUMBER,
+					"first_name" => PHPExcel_Style_NumberFormat::FORMAT_TEXT,
+					"last_name"  => PHPExcel_Style_NumberFormat::FORMAT_TEXT
+				)
+			));
+
+			$this->assertFalse(file_exists("test.xlsx"));
+
+			$this->assertFalse($excel_mysql_import_export->mysql_to_excel(
+				"excel_mysql_data",
+				"Экспорт",
+				array(
+					"id",
+					"first_name",
+					"last_name",
+					"pay"
+				),
+				false,
+				false,
+				false,
+				false,
+				false,
+				false,
+				"fail"
+			));
+
+			$this->assertFalse(file_exists("test.xlsx"));
+
+			$this->assertFalse($excel_mysql_import_export->mysql_to_excel(
+				"excel_mysql_data",
+				"Экспорт",
+				false,
+				false,
+				false,
+				false,
+				false,
+				false,
+				false,
+				array(
+					"id"         => PHPExcel_Style_NumberFormat::FORMAT_NUMBER,
+					"first_name" => PHPExcel_Style_NumberFormat::FORMAT_TEXT,
+					"last_name"  => PHPExcel_Style_NumberFormat::FORMAT_TEXT,
+					"pay"        => PHPExcel_Style_NumberFormat::FORMAT_NUMBER
+				)
+			));
+
+			$this->assertFalse(file_exists("test.xlsx"));
+		}
+
+		public
+		function testGettersAndSetters() {
+			$excel_mysql_import_export = new Excel_mysql(new mysqli(), "./test.xlsx");
+
+			$connection = $excel_mysql_import_export->getConnection();
+
+			$excel_mysql_import_export->setConnection($connection);
+
+			$filename = $excel_mysql_import_export->getFileName();
+
+			$excel_mysql_import_export->setFileName($filename);
 		}
 	}

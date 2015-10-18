@@ -2,6 +2,8 @@
 
 	/**
 	 * Класс импорта файла Excel в таблицу MySQL и экспорта таблицы MySQL в файл Excel
+	 *
+	 * Некоторые строки не включены в проверку кода, т.к. не все ситуации можно проверить (например, при работе с БД) или участки кода не выполняются интерпретатором и не проходят проверку, например, закрытие (}) блоков
 	 */
 	class Excel_mysql {
 		/**
@@ -102,11 +104,13 @@
 
 				$query_string = "DROP TABLE IF EXISTS {$table_name}";
 
+				// @codeCoverageIgnoreStart
 				if (defined("EXCEL_MYSQL_DEBUG")) {
 					if (EXCEL_MYSQL_DEBUG) {
 						var_dump($query_string);
 					}
 				}
+				// @codeCoverageIgnoreEnd
 
 				// Удаляем таблицу MySQL, если она существовала (если не указан столбец с уникальным значением для обновления)
 				if ($unique_column_for_update ? true : $this->mysql_connect->query($query_string)) {
@@ -146,11 +150,13 @@
 
 					$query_string = "CREATE TABLE IF NOT EXISTS {$table_name} ({$columns_types_list}{$columns_keys}) COLLATE = '{$table_encoding}' ENGINE = {$table_engine}";
 
+					// @codeCoverageIgnoreStart
 					if (defined("EXCEL_MYSQL_DEBUG")) {
 						if (EXCEL_MYSQL_DEBUG) {
 							var_dump($query_string);
 						}
 					}
+					// @codeCoverageIgnoreEnd
 
 					// Создаем таблицу MySQL
 					if ($this->mysql_connect->query($query_string)) {
@@ -182,6 +188,7 @@
 
 								// Перебираем массив объединенных ячеек листа Excel
 								foreach ($all_merged_cells as $merged_cells) {
+									// @codeCoverageIgnoreStart
 									// Если текущая ячейка - объединенная,
 									if ($cell->isInRange($merged_cells)) {
 										// то вычисляем значение первой объединенной ячейки, и используем её в качестве значения текущей ячейки
@@ -191,6 +198,7 @@
 
 										break;
 									}
+									// @codeCoverageIgnoreEnd
 								}
 
 								// Проверяем, что ячейка не объединенная: если нет, то берем ее значение, иначе значение первой объединенной ячейки
@@ -203,7 +211,9 @@
 										if (!$condition_functions[$columns_names[$column]]($value)) {
 											break;
 										}
+										// @codeCoverageIgnoreStart
 									}
+									// @codeCoverageIgnoreEnd
 								}
 
 								$value = $transform_functions ? (isset($transform_functions[$columns_names[$column]]) ? $transform_functions[$columns_names[$column]]($value) : $value) : $value;
@@ -235,11 +245,13 @@
 
 								$query_string = "SELECT COUNT(*) AS count FROM {$table_name}{$where}";
 
+								// @codeCoverageIgnoreStart
 								if (defined("EXCEL_MYSQL_DEBUG")) {
 									if (EXCEL_MYSQL_DEBUG) {
 										var_dump($query_string);
 									}
 								}
+								// @codeCoverageIgnoreEnd
 
 								// Проверяем есть ли запись в таблице
 								$count = $this->mysql_connect->query($query_string);
@@ -247,6 +259,7 @@
 
 								// Если есть, то создаем запрос и обновляем
 								if (intval($count['count']) != 0) {
+									// @codeCoverageIgnoreStart
 									$set = array();
 
 									foreach ($columns_values as $column => $value) {
@@ -267,6 +280,7 @@
 										return false;
 									}
 								} else {
+									// @codeCoverageIgnoreEnd
 									$add_to_table = true;
 								}
 							}
@@ -278,6 +292,7 @@
 
 								$query_string = "INSERT INTO {$table_name} ({$columns_list}) VALUES ({$values_list})";
 
+								// @codeCoverageIgnoreStart
 								if (defined("EXCEL_MYSQL_DEBUG")) {
 									if (EXCEL_MYSQL_DEBUG) {
 										var_dump($query_string);
@@ -287,6 +302,7 @@
 								if (!$this->mysql_connect->query($query_string)) {
 									return false;
 								}
+								// @codeCoverageIgnoreEnd
 							}
 						}
 
@@ -295,21 +311,25 @@
 
 							$query_string = "DELETE FROM {$table_name} WHERE {$unique_column_for_update} NOT IN ({$id_list})";
 
+							// @codeCoverageIgnoreStart
 							if (defined("EXCEL_MYSQL_DEBUG")) {
 								if (EXCEL_MYSQL_DEBUG) {
 									var_dump($query_string);
 								}
 							}
+							// @codeCoverageIgnoreEnd
 
 							$this->mysql_connect->query($query_string);
 						}
 
 						return true;
 					}
+					// @codeCoverageIgnoreStart
 				}
 			}
 
 			return false;
+			// @codeCoverageIgnoreEnd
 		}
 
 		/**
@@ -369,7 +389,9 @@
 					$table_name = array_key_exists($index, $tables_names) ? $tables_names[$index] : "{$tables_names[0]}{$index}";
 
 					if (!$this->excel_to_mysql($worksheet, $table_name, $columns_names, $start_row_index, $condition_functions, $transform_functions, $unique_column_for_update, $table_types, $table_keys, $table_encoding, $table_engine)) {
+						// @codeCoverageIgnoreStart
 						return false;
+						// @codeCoverageIgnoreEnd
 					}
 				}
 
@@ -458,11 +480,13 @@
 					$query_string = "{$query_string} LIMIT {$limit_start}{$limit_separator}{$limit_stop}";
 				}
 
+				// @codeCoverageIgnoreStart
 				if (defined("EXCEL_MYSQL_DEBUG")) {
 					if (EXCEL_MYSQL_DEBUG) {
 						var_dump($query_string);
 					}
 				}
+				// @codeCoverageIgnoreEnd
 
 				if ($query = $this->mysql_connect->query($query_string)) {
 					// Если таблица MySQL не пустая
@@ -533,10 +557,12 @@
 
 						return true;
 					}
+					// @codeCoverageIgnoreStart
 				}
 			}
 
 			return false;
+			// @codeCoverageIgnoreEnd
 		}
 
 		/**
