@@ -14,10 +14,15 @@ install:
     - copy php.ini-production php.ini
     - echo extension_dir=ext >> php.ini
     - echo extension=php_openssl.dll >> php.ini
+    - echo extension=php_mysql.dll >> php.ini
     - SET PATH=C:\tools\php;%PATH%
     - cd C:\projects\excel_mysql
     - php -r "readfile('http://getcomposer.org/installer');" | php
     - php composer.phar require "phpunit/phpunit=5.0.*"
+
+before_test:
+    - mysql --user=root --password="Password12!" -e "CREATE DATABASE excel_mysql_base CHARACTER SET utf8 COLLATE utf8_general_ci"
+    - mysql --user=root --password="Password12!" -e "GRANT ALL PRIVILEGES ON excel_mysql_base.* TO 'user'@'localhost' IDENTIFIED BY 'pass'"
 
 test_script:
     - cd C:\projects\excel_mysql
