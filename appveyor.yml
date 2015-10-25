@@ -1,0 +1,18 @@
+build: false
+
+platform: x86
+
+clone_folder: C:\projects\excel_mysql
+
+install:
+    - cinst -y php
+    - cd c:\tools\php
+    - copy php.ini-production php.ini
+    - SET PATH=C:\tools\php;%PATH%
+    - cd C:\projects\excel_mysql
+    - php -r "readfile('http://getcomposer.org/installer');" | php
+    - php composer.phar require "phpunit/phpunit=5.0.*"
+
+test_script:
+    - cd C:\projects\excel_mysql
+    - vendor\bin\phpunit.bat
