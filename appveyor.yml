@@ -5,6 +5,8 @@ platform: x86
 clone_folder: C:\projects\excel_mysql
 
 install:
+    - cinst -y OpenSSL.Light
+    - SET PATH=C:\Program Files\OpenSSL;%PATH%
     - cinst -y php
     - cd c:\tools\php
     - copy php.ini-production php.ini
