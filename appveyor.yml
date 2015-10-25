@@ -1,8 +1,10 @@
 build: false
-
 platform: x86
 
 clone_folder: C:\projects\excel_mysql
+
+services:
+    - mysql
 
 install:
     - cinst -y OpenSSL.Light
